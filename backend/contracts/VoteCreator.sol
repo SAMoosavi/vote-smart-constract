@@ -25,7 +25,9 @@ contract VoteCreator {
     mapping(address => address[]) public authContracts;
     mapping(address => address[]) public voteContracts;
 
-    function createAuth(string memory _authName) internal returns (address) {
+    function createAuth(string memory _authName) public payable returns (address) {
+        require(msg.value >= authCreationFee, 'Insufficient payment');
+
         Auth auth = new Auth(_authName);
         address authAddress = address(auth);
         authContracts[msg.sender].push(authAddress);
@@ -36,35 +38,14 @@ contract VoteCreator {
         address _authAddress,
         string memory _voteName,
         string[] memory candidateNames
-    ) internal returns (address) {
+    ) public payable returns (address) {
+        require(msg.value >= voteCreationFee, 'Insufficient payment');
+
         Vote vote = new Vote(_authAddress, _voteName, candidateNames);
         address voteAddress = address(vote);
         voteContracts[msg.sender].push(voteAddress);
         add(msg.sender);
         return voteAddress;
-    }
-
-    function createAuthAndVote(
-        string memory _authName,
-        string memory _voteName,
-        string[] memory candidateNames
-    ) public payable returns (address, address) {
-        require(msg.value >= authCreationFee + voteCreationFee, 'Insufficient payment');
-
-        address authAddress = createAuth(_authName);
-        address voteAddress = createVote(authAddress, _voteName, candidateNames);
-
-        return (authAddress, voteAddress);
-    }
-
-    function createVoteWithExistingAuth(
-        address _authAddress,
-        string memory _voteName,
-        string[] memory candidateNames
-    ) public payable returns (address) {
-        require(msg.value >= voteCreationFee, 'Insufficient payment');
-
-        return createVote(_authAddress, _voteName, candidateNames);
     }
 
     function getAuthContracts() public view returns (address[] memory) {
@@ -75,28 +56,28 @@ contract VoteCreator {
         return voteContracts[msg.sender];
     }
 
-    function getAllAuthContracts() public view returns (address[] memory) {
+    function getAllVoteContracts() public view returns (address[] memory) {
         uint256 count = 0;
-        address[] memory allAuthContracts;
+        address[] memory allVoteContracts;
         uint256 index = 0;
 
         for (uint k = 0; k < voteUsers.values.length; ++k) {
             address sender = voteUsers.values[k];
             for (uint256 i = 0; i < authContracts[sender].length; i++) {
                 if (count == 0) {
-                    allAuthContracts = new address[](authContracts[sender].length);
+                    allVoteContracts = new address[](authContracts[sender].length);
                 } else {
                     address[] memory temp = new address[](count + authContracts[sender].length);
                     for (uint256 j = 0; j < count; j++) {
-                        temp[j] = allAuthContracts[j];
+                        temp[j] = allVoteContracts[j];
                     }
-                    allAuthContracts = temp;
+                    allVoteContracts = temp;
                 }
-                allAuthContracts[index] = authContracts[sender][i];
+                allVoteContracts[index] = authContracts[sender][i];
                 index++;
                 count++;
             }
         }
-        return allAuthContracts;
+        return allVoteContracts;
     }
 }
