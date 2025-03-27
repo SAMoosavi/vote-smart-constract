@@ -1,5 +1,4 @@
-import Web3 from 'web3'
-import { AbiItem } from 'web3-utils'
+import Web3, { type ContractAbi } from 'web3'
 import * as fs from 'fs'
 import * as path from 'path'
 import dotenv from 'dotenv'
@@ -23,11 +22,11 @@ const deployContract = async (contractName: string) => {
 	const contractJson = JSON.parse(fs.readFileSync(buildPath, 'utf8'))
 	const { abi, bytecode } = contractJson
 
-	const contract = new web3.eth.Contract(abi as AbiItem[])
+	const contract = new web3.eth.Contract(abi as ContractAbi)
 
 	const deployOptions = {
 		data: '0x' + bytecode,
-		arguments: [], // Add constructor arguments if needed
+		arguments: [],
 	}
 
 	const deployTransaction = contract.deploy(deployOptions)
@@ -38,7 +37,7 @@ const deployContract = async (contractName: string) => {
 		data: deployTransaction.encodeABI(),
 		gas,
 		gasPrice,
-		from: account.address, // Ensure the from address is set
+		from: account.address,
 	}
 
 	const signed = await web3.eth.accounts.signTransaction(options, PRIVATE_KEY)
@@ -48,7 +47,7 @@ const deployContract = async (contractName: string) => {
 
 const main = async () => {
 	try {
-		await deployContract('VoteCreator') // Replace with actual contract name
+		await deployContract('VoteCreator')
 	} catch (error) {
 		console.error('Error deploying contract:', error)
 	}
