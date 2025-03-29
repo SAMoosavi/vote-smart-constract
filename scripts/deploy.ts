@@ -1,56 +1,31 @@
-import Web3, { type ContractAbi } from 'web3'
+import { ethers } from 'ethers'
 import * as fs from 'fs'
 import * as path from 'path'
-import dotenv from 'dotenv'
 
-dotenv.config()
+// eslint-disable-next-line @typescript-eslint/no-require-imports
+require('dotenv').config()
 
-const RPC_URL = process.env.LOCAL_RPC_URL || 'http://127.0.0.1:8545'
+const RPC_URL = process.env.LOCAL_RPC_URL || 'http://127.0.0.1:7545'
 const PRIVATE_KEY = process.env.DEPLOYER_PRIVATE_KEY
 
-if (!PRIVATE_KEY) {
-	throw new Error('DEPLOYER_PRIVATE_KEY not set in .env file.')
+if (!PRIVATE_KEY) throw new Error('DEPLOYER_PRIVATE_KEY not set in .env file.')
+
+const provider = new ethers.JsonRpcProvider(RPC_URL)
+const wallet = new ethers.Wallet(PRIVATE_KEY, provider)
+
+async function main() {
+	const contractPath = path.join(__dirname, '../build', 'VoteCreator.json')
+	const contractJson = JSON.parse(fs.readFileSync(contractPath, 'utf8'))
+
+	const factory = ethers.ContractFactory.fromSolidity(contractJson, wallet)
+
+	console.log('Deploying contract...')
+	const contract = await factory.deploy()
+
+	console.log(`Contract deployed at address: ${contract.target}`)
 }
 
-const web3 = new Web3(RPC_URL)
-const account = web3.eth.accounts.privateKeyToAccount(PRIVATE_KEY)
-web3.eth.accounts.wallet.add(account)
-web3.eth.defaultAccount = account.address
-
-const deployContract = async (contractName: string) => {
-	const buildPath = path.resolve(__dirname, '../build', `${contractName}.json`)
-	const contractJson = JSON.parse(fs.readFileSync(buildPath, 'utf8'))
-	const { abi, bytecode } = contractJson
-
-	const contract = new web3.eth.Contract(abi as ContractAbi)
-
-	const deployOptions = {
-		data: '0x' + bytecode,
-		arguments: [],
-	}
-
-	const deployTransaction = contract.deploy(deployOptions)
-	const gas = await deployTransaction.estimateGas()
-	const gasPrice = await web3.eth.getGasPrice()
-
-	const options = {
-		data: deployTransaction.encodeABI(),
-		gas,
-		gasPrice,
-		from: account.address,
-	}
-
-	const signed = await web3.eth.accounts.signTransaction(options, PRIVATE_KEY)
-	const receipt = await web3.eth.sendSignedTransaction(signed.rawTransaction as string)
-	console.log(`Contract deployed at address: ${receipt.contractAddress}`)
-}
-
-const main = async () => {
-	try {
-		await deployContract('VoteCreator')
-	} catch (error) {
-		console.error('Error deploying contract:', error)
-	}
-}
-
-main()
+main().catch((error) => {
+	console.error(error)
+	process.exit(1)
+})
