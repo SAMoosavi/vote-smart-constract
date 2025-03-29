@@ -22,15 +22,26 @@ contract VoteCreator {
 	uint256 public authCreationFee = 1 ether;
 	uint256 public voteCreationFee = 0.5 ether;
 
-	mapping(address => address[]) public authContracts;
-	mapping(address => address[]) public voteContracts;
+	struct AuthData {
+		address add;
+		string name;
+	}
+
+	struct VoteData {
+		address add;
+		string name;
+		address authAdd;
+	}
+
+	mapping(address => AuthData[]) public authContracts;
+	mapping(address => VoteData[]) public voteContracts;
 
 	function createAuth(string memory _authName) public payable {
 		require(msg.value >= authCreationFee, 'Insufficient payment');
 
 		Auth auth = new Auth(_authName);
 		address authAddress = address(auth);
-		authContracts[msg.sender].push(authAddress);
+		authContracts[msg.sender].push(AuthData(authAddress, _authName));
 	}
 
 	function createVote(address _authAddress, string memory _voteName, string[] memory candidateNames) public payable {
@@ -38,37 +49,36 @@ contract VoteCreator {
 
 		Vote vote = new Vote(_authAddress, _voteName, candidateNames);
 		address voteAddress = address(vote);
-		voteContracts[msg.sender].push(voteAddress);
+		voteContracts[msg.sender].push(VoteData(voteAddress, _voteName, _authAddress));
 		add(msg.sender);
-		
 	}
 
-	function getAuthContracts() public view returns (address[] memory) {
+	function getAuthContracts() public view returns (AuthData[] memory) {
 		return authContracts[msg.sender];
 	}
 
-	function getVoteContracts() public view returns (address[] memory) {
+	function getVoteContracts() public view returns (VoteData[] memory) {
 		return voteContracts[msg.sender];
 	}
 
-	function getAllVoteContracts() public view returns (address[] memory) {
+	function getAllVoteContracts() public view returns (VoteData[] memory) {
 		uint256 count = 0;
-		address[] memory allVoteContracts;
+		VoteData[] memory allVoteContracts;
 		uint256 index = 0;
 
 		for (uint k = 0; k < voteUsers.values.length; ++k) {
 			address sender = voteUsers.values[k];
-			for (uint256 i = 0; i < authContracts[sender].length; i++) {
+			for (uint256 i = 0; i < voteContracts[sender].length; i++) {
 				if (count == 0) {
-					allVoteContracts = new address[](authContracts[sender].length);
+					allVoteContracts = new VoteData[](voteContracts[sender].length);
 				} else {
-					address[] memory temp = new address[](count + authContracts[sender].length);
+					VoteData[] memory temp = new VoteData[](count + voteContracts[sender].length);
 					for (uint256 j = 0; j < count; j++) {
 						temp[j] = allVoteContracts[j];
 					}
 					allVoteContracts = temp;
 				}
-				allVoteContracts[index] = authContracts[sender][i];
+				allVoteContracts[index] = voteContracts[sender][i];
 				index++;
 				count++;
 			}
