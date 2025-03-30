@@ -13,6 +13,8 @@ contract Auth {
 		bytes32 hashedPassword;
 	}
 
+	string[] public userKeys;
+
 	event UserCreated(string username, string email);
 
 	constructor(string memory _name) {
@@ -40,6 +42,7 @@ contract Auth {
 		userCount++;
 		bytes32 _hashedPassword = hasher(_password, _username);
 		usersList[_username] = User(_username, _email, _hashedPassword);
+		userKeys.push(_username);
 		emit UserCreated(_username, _email);
 	}
 
@@ -53,4 +56,19 @@ contract Auth {
 		bytes32 _hashedNewPassword = hasher(_newPassword, _username);
 		usersList[_username].hashedPassword = _hashedNewPassword;
 	}
+
+	struct ReturnedUser {
+		string username;
+		string email;
+	}
+
+	function get_users() public view returns (ReturnedUser[] memory) {
+		ReturnedUser[] memory allUsers = new ReturnedUser[](userKeys.length);
+		for (uint i = 0; i < userKeys.length; i++) {
+			User storage user = usersList[userKeys[i]];
+			allUsers[i] = ReturnedUser(user.username, user.email);
+		}
+		return allUsers;
+	}
+
 }

@@ -112,7 +112,7 @@
 </template>
 
 <script setup lang="ts">
-import { createVote, getAuth, getVote } from '@/functions/vote_creator/VoteCreator'
+import { createVote, getAuth, getVote } from '@/functions/VoteCreator.ts'
 import { onMounted, ref, useTemplateRef, watch } from 'vue'
 
 const votes = ref([])

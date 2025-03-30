@@ -21,6 +21,11 @@ const router = createRouter({
 			name: 'dashboard',
 			component: () => import('../views/DashboardView.vue'),
 		},
+		{
+			path: '/auth/:address',
+			name: 'show-auth',
+			component: () => import('../views/AuthView.vue'),
+		},
 	],
 })
 
