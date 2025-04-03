@@ -2,12 +2,11 @@ import { ethers } from 'ethers'
 import contractJson from '../../build/VoteCreator.json'
 import { connect } from './Connector.ts'
 
-
 function loadContract(): { provider: ethers.JsonRpcProvider; wallet: ethers.Wallet; contract: ethers.Contract } {
 	const { provider, wallet } = connect()
 
 	const abi = contractJson.abi
-	const CONTRACT_ADDRESS = '0xC469e7aE4aD962c30c7111dc580B4adbc7E914DD'
+	const CONTRACT_ADDRESS = '0x6d925938Edb8A16B3035A4cF34FAA090f490202a'
 	const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet)
 
 	return { provider, wallet, contract }
@@ -64,6 +63,26 @@ export async function getVote() {
 
 	try {
 		return await contract.getVoteContracts()
+	} catch (error) {
+		console.error('Error calling contract:', error)
+	}
+}
+
+export async function accessToAuth(address: string) {
+	const { contract } = loadContract()
+
+	try {
+		return await contract.AccessToAuth(address)
+	} catch (error) {
+		console.error('Error calling contract:', error)
+	}
+}
+
+export async function accessToVote(address: string) {
+	const { contract } = loadContract()
+
+	try {
+		return await contract.AccessToVote(address)
 	} catch (error) {
 		console.error('Error calling contract:', error)
 	}

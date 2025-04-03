@@ -23,12 +23,12 @@ contract VoteCreator {
 	uint256 public voteCreationFee = 0.5 ether;
 
 	struct AuthData {
-		address add;
+		address authAddress;
 		string name;
 	}
 
 	struct VoteData {
-		address add;
+		address voteAddress;
 		string name;
 		address authAdd;
 	}
@@ -84,5 +84,25 @@ contract VoteCreator {
 			}
 		}
 		return allVoteContracts;
+	}
+
+	function AccessToAuth(address _authAddress) public view returns (bool) {
+		AuthData[] memory auths = authContracts[msg.sender];
+		for (uint i = 0; i < auths.length; i++) {
+			if (auths[i].authAddress == _authAddress) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	function AccessToVote(address _voteAddress) public view returns (bool) {
+		VoteData[] memory auths = voteContracts[msg.sender];
+		for (uint i = 0; i < auths.length; i++) {
+			if (auths[i].voteAddress == _voteAddress) {
+				return true;
+			}
+		}
+		return false;
 	}
 }
