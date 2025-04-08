@@ -1,5 +1,5 @@
 import { ethers } from 'ethers'
-import contractJson from '../../build/Auth.json'
+import abi from '@/build/Auth.abi.json'
 import { connect } from './Connector.ts'
 
 function loadContract(contract_address: string): {
@@ -9,7 +9,6 @@ function loadContract(contract_address: string): {
 } {
 	const { provider, wallet } = connect()
 
-	const abi = contractJson.abi
 	const contract = new ethers.Contract(contract_address, abi, wallet)
 
 	return { provider, wallet, contract }

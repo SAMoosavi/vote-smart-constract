@@ -37,8 +37,8 @@
 								@submit.prevent="
 									() => {
 										create_auth()
-											.then((r) => create_auth_modal_ref?.close())
-											.catch((err) => {})
+											.then(() => create_auth_modal_ref?.close())
+											.catch(() => {})
 									}
 								"
 								class="flex flex-col gap-5 items-center text-center"

@@ -14,7 +14,7 @@ const provider = new ethers.JsonRpcProvider(RPC_URL)
 const wallet = new ethers.Wallet(PRIVATE_KEY, provider)
 
 async function main() {
-	const contractPath = path.join(__dirname, '../build', 'VoteCreator.json')
+	const contractPath = path.join(__dirname, '../artifacts/contracts/VoteCreator.sol/VoteCreator.json')
 	const contractJson = JSON.parse(fs.readFileSync(contractPath, 'utf8'))
 
 	const factory = ethers.ContractFactory.fromSolidity(contractJson, wallet)

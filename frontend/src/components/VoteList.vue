@@ -37,8 +37,8 @@
 								@submit.prevent="
 									() => {
 										create_vote()
-											.then((r) => create_vote_modal_ref?.close())
-											.catch((err) => {})
+											.then(() => create_vote_modal_ref?.close())
+											.catch(() => {})
 									}
 								"
 								class="flex flex-col gap-5 pt-5 items-center text-center"

@@ -28,9 +28,3 @@ coverage
 *.sw?
 
 *.tsbuildinfo
-
-build
-.env
-artifacts
-typechain-types
-cache

@@ -27,7 +27,7 @@
 </template>
 
 <script setup lang="ts">
-import anime from 'animejs/lib/anime.es.js'
+import { animate, utils } from 'animejs'
 import { useTemplateRef, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 
@@ -35,13 +35,13 @@ const number_of_vote_ref = useTemplateRef('number_of_vote')
 
 const number_of_voterum = 20
 
-watch(number_of_vote_ref, (v) => {
-	if (v != null) {
-		anime({
-			targets: number_of_vote_ref.value,
+watch(number_of_vote_ref, () => {
+	if (number_of_vote_ref.value != null) {
+		animate(number_of_vote_ref.value as HTMLElement,{
+			modifier: utils.round(0),
 			innerHTML: [0, number_of_voterum],
-			easing: 'easeOutBack',
-			round: 1,
+			easing: 'inBack',
+			duration: 2000,
 		})
 	}
 })

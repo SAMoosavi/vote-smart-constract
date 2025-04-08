@@ -1,12 +1,11 @@
 import { ethers } from 'ethers'
-import contractJson from '../../build/VoteCreator.json'
+import abi from '@/build/VoteCreator.abi.json'
 import { connect } from './Connector.ts'
 
 function loadContract(): { provider: ethers.JsonRpcProvider; wallet: ethers.Wallet; contract: ethers.Contract } {
 	const { provider, wallet } = connect()
 
-	const abi = contractJson.abi
-	const CONTRACT_ADDRESS = '0x6d925938Edb8A16B3035A4cF34FAA090f490202a'
+	const CONTRACT_ADDRESS = '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512'
 	const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet)
 
 	return { provider, wallet, contract }
