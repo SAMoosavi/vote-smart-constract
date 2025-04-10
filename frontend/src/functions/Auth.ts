@@ -19,16 +19,14 @@ export async function addUser(
 	username: string,
 	password: string,
 	email: string,
-): Promise<void> {
+) {
 	const { contract } = loadContract(contract_address)
 
 	try {
-		const tx = await contract.createUser(username, email, password, {
+		return contract.createUser(username, email, password, {
 			gasLimit: 2152000,
 		})
 
-		await tx.wait()
-		console.log('Transaction successful:', tx)
 	} catch (error) {
 		console.error('Error calling contract:', error)
 	}

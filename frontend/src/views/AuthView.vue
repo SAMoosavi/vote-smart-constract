@@ -71,7 +71,11 @@
 										placeholder="password"
 										class="input input-secondary w-full validator"
 									/>
-									<button :disabled="creating" class="btn btn-block btn-dash btn-primary" type="submit">
+									<button
+										:disabled="creating"
+										class="btn btn-block btn-dash btn-primary"
+										type="submit"
+									>
 										<span v-show="creating" class="loading loading-spinner loading-md"></span>
 										add
 									</button>
@@ -83,7 +87,10 @@
 					<li class="list-row items-center" v-for="(val, index) in users" :key="index">
 						<h3 class="text-3xl">{{ val[0] }}</h3>
 						<span class="text-sm truncate opacity-60"> {{ val[1] }}</span>
-						<RouterLink :to="{ name: 'show-auth', params: { address: val[1] } }" class="btn btn-square btn-ghost">
+						<RouterLink
+							:to="{ name: 'show-auth', params: { address: val[1] } }"
+							class="btn btn-square btn-ghost"
+						>
 							<svg
 								xmlns="http://www.w3.org/2000/svg"
 								fill="none"
@@ -110,7 +117,8 @@
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { addUser, getUsers } from '@/functions/Auth.ts'
 import { onBeforeMount, onMounted, ref, useTemplateRef } from 'vue'
-import { accessToAuth, createAuth } from '@/functions/VoteCreator.ts'
+import { accessToAuth } from '@/functions/VoteCreator.ts'
+import { toast } from 'vue3-toastify'
 
 const route = useRoute()
 const router = useRouter()
@@ -142,12 +150,19 @@ async function add_user() {
 
 	creating.value = true
 	await addUser(address, username.value, password.value, email.value)
-	await createAuth(username.value)
-	await get_users()
-	creating.value = false
-	username.value = ''
-	email.value = ''
-	password.value = ''
+		.then(async () => {
+			toast.success('user added successfully.')
+			await get_users()
+		})
+		.catch(() =>
+			toast.error('the username is exist'),
+		)
+		.finally(() => {
+			creating.value = false
+			username.value = ''
+			email.value = ''
+			password.value = ''
+		})
 }
 
 async function get_users() {

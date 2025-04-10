@@ -62,7 +62,10 @@
 				<li class="list-row items-center" v-for="(val, index) in auths" :key="index">
 					<h3 class="text-3xl">{{ val[1] }}</h3>
 					<span class="text-sm truncate opacity-60"> {{ val[0] }}</span>
-					<RouterLink :to="{ name: 'show-auth', params: { address: val[0] } }" class="btn btn-square btn-ghost">
+					<RouterLink
+						:to="{ name: 'show-auth', params: { address: val[0] } }"
+						class="btn btn-square btn-ghost"
+					>
 						<svg
 							xmlns="http://www.w3.org/2000/svg"
 							fill="none"
@@ -100,10 +103,16 @@ async function create_auth() {
 	if (auth_name.value === '') throw new Error('please enter name of auth name')
 
 	creating.value = true
-	await createAuth(auth_name.value)
-	await get_auth()
-	creating.value = false
-	auth_name.value = ''
+	createAuth(auth_name.value)
+		.then(async () => {
+			await get_auth()
+		})
+		.catch((err) => {
+			console.log(err)})
+		.finally(() => {
+			creating.value = false
+			auth_name.value = ''
+		})
 }
 
 async function get_auth() {
