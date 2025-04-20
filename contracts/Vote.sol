@@ -1,137 +1,166 @@
 // SPDX-License-Identifier: MIT
-pragma solidity ^0.8.0;
+pragma solidity ^0.8.20;
 
-import './Auth.sol';
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
+import "@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol";
 
-contract Vote {
-    Auth private auth;
-    address private immutable owner;
-    string public voteName;
-    bool public votingStarted;
-    bool public votingEnded;
 
-    struct Candidate {
-        string name;
-        uint voteCount;
-    }
+/// @title Vote - A secure voting contract with off-chain hashed signature verification
+/// @notice Owner manages voting lifecycle; voters cast votes using off-chain signed messages
+contract Vote is Ownable {
+	using ECDSA for bytes32;
 
-    Candidate[] private candidates;
-    mapping(bytes32 => bool) public hasVoted;
+	string public voteName;
+	bool public votingStarted;
+	bool public votingEnded;
+	uint64 public immutable minAge;
+	uint64 public immutable maxAge;
 
-    event VotingStarted();
-    event VotingEnded();
-    event VoteCasted(address indexed voter, uint candidateIndex);
+	struct Candidate {
+		string name;
+		uint256 voteCount;
+	}
 
-    constructor(address _authAddress, string memory _voteName, string[] memory candidateNames) {
-        auth = Auth(_authAddress);
-        voteName = _voteName;
-        owner = msg.sender;
-        for (uint i = 0; i < candidateNames.length; i++) {
-            candidates.push(Candidate({name: candidateNames[i], voteCount: 0}));
-        }
-    }
+	Candidate[] private candidates;
+	mapping(address => bool) public hasVoted;
+	mapping(address => uint256) public nonces;
 
-    modifier onlyOwner() {
-        require(msg.sender == owner, 'Only owner can call this function');
-        _;
-    }
+	/// @dev Errors for efficient reverts
+	error ErrorVotingNotStarted();
+	error ErrorVotingEnded();
+	error AlreadyVoted();
+	error InvalidCandidate();
+	error InvalidSignature();
+	error InvalidAge();
+	error InvalidNonce();
 
-    modifier whenStarted() {
-        require(votingStarted, 'Voting has not started yet');
-        _;
-    }
+	/// @dev Emitted when voting starts
+	event VotingStarted();
+	/// @dev Emitted when voting ends
+	event VotingEnded();
+	/// @dev Emitted when a vote is cast
+	event Voted(address indexed voter, uint256 indexed candidateIndex);
 
-    modifier whenNotEnded() {
-        require(!votingEnded, 'Voting has ended');
-        _;
-    }
+	/// @param _voteName Name of the vote
+	/// @param candidateNames List of candidate names
+	/// @param _minAge Minimum eligible age
+	/// @param _maxAge Maximum eligible age (0 for no limit)
+	constructor(
+		string memory _voteName,
+		string[] memory candidateNames,
+		uint64 _minAge,
+		uint64 _maxAge
+	) Ownable(msg.sender) {
+		require(bytes(_voteName).length > 0, "Vote name required");
+		require(candidateNames.length > 0, "At least one candidate required");
+		if (_maxAge != 0) require(_maxAge >= _minAge, "maxAge < minAge");
 
-    function startVoting() external onlyOwner {
-        require(!votingStarted, 'Voting has already started');
-        votingStarted = true;
-        emit VotingStarted();
-    }
+		voteName = _voteName;
+		minAge = _minAge;
+		maxAge = _maxAge;
 
-    function endVoting() external onlyOwner whenStarted whenNotEnded {
-        votingEnded = true;
-        emit VotingEnded();
-    }
+		for (uint256 i; i < candidateNames.length; ++i) {
+			require(bytes(candidateNames[i]).length > 0, "Candidate name required");
+			candidates.push(Candidate(candidateNames[i], 0));
+		}
+	}
 
-    function verifyUser(
-        string memory _username,
-        string memory _password
-    ) private view returns (bool) {
-        return auth.verifyPassword(_username, _password);
-    }
+	modifier whenStarted() {
+		if (!votingStarted) revert ErrorVotingNotStarted();
+		_;
+	}
 
-    modifier onlyAuthenticated(string memory _username, string memory _password) {
-        require(verifyUser(_username, _password), 'Invalid credentials');
-        _;
-    }
+	modifier whenNotEnded() {
+		if (votingEnded) revert ErrorVotingEnded();
+		_;
+	}
 
-    function vote(
-        uint candidateIndex,
-        string memory _username,
-        string memory _password
-    ) external whenStarted whenNotEnded onlyAuthenticated(_username, _password) {
-        bytes32 _hashedPassword = keccak256(abi.encodePacked(_password, _username));
+	/// @notice Starts voting; only owner
+	function startVoting() external onlyOwner {
+		if (votingStarted) revert ErrorVotingNotStarted();
+		votingStarted = true;
+		emit VotingStarted();
+	}
 
-        require(!hasVoted[_hashedPassword], 'You have already voted');
-        require(candidateIndex < candidates.length, 'Invalid candidate index');
+	/// @notice Ends voting; only owner
+	function endVoting() external onlyOwner whenStarted whenNotEnded {
+		votingEnded = true;
+		emit VotingEnded();
+	}
 
-        hasVoted[_hashedPassword] = true;
-        candidates[candidateIndex].voteCount++;
-        emit VoteCasted(msg.sender, candidateIndex);
-    }
+	/// @notice Cast a vote via off-chain signed message
+	/// @param candidateIndex Index of chosen candidate
+	/// @param age Voter's age
+	/// @param nonce Unique nonce for replay protection
+	/// @param signature Signer’s signature of the hashed payload
+	function vote(
+		uint256 candidateIndex,
+		uint64 age,
+		uint256 nonce,
+		bytes calldata signature
+	) external whenStarted whenNotEnded {
+		if (nonce != nonces[msg.sender]) revert InvalidNonce();
+		if (!isEligible(age)) revert InvalidAge();
+		if (hasVoted[msg.sender]) revert AlreadyVoted();
+		if (candidateIndex >= candidates.length) revert InvalidCandidate();
 
-    function getWinner() external view returns (string[] memory winners, uint winningVoteCount) {
-        require(votingEnded, 'Voting has not ended yet');
-        uint candidateCount = candidates.length;
-        // Temporary array allocated with maximum possible size.
-        string[] memory tempWinners = new string[](candidateCount);
-        uint count = 0;
-        winningVoteCount = 0;
+		// Recreate the message hash off-chain
+		bytes32 messageHash = keccak256(
+			abi.encodePacked(msg.sender, candidateIndex, age, nonce)
+		);
+		// prefix and hash per EIP‑191
+		bytes32 ethSignedHash = MessageHashUtils.toEthSignedMessageHash(messageHash);
+		// recover signer
+		address signer = ECDSA.recover(ethSignedHash, signature);
+		if (signer != msg.sender) revert InvalidSignature();
 
-        // Loop once over the candidates to determine the winning vote count and record winners.
-        for (uint i = 0; i < candidateCount; ) {
-            uint votes = candidates[i].voteCount;
-            if (votes > winningVoteCount) {
-                winningVoteCount = votes;
-                count = 0; // Reset count if a new high is found.
-                tempWinners[count] = candidates[i].name;
-                unchecked {
-                    count = 1;
-                }
-            } else if (votes == winningVoteCount) {
-                tempWinners[count] = candidates[i].name;
-                unchecked {
-                    count++;
-                }
-            }
-            unchecked {
-                i++;
-            }
-        }
+		// Mark nonce used and record vote
+		nonces[msg.sender]++;
+		hasVoted[msg.sender] = true;
+		candidates[candidateIndex].voteCount++;
 
-        // Allocate a new array with the exact size of winners.
-        winners = new string[](count);
-        for (uint i = 0; i < count; ) {
-            winners[i] = tempWinners[i];
-            unchecked {
-                i++;
-            }
-        }
+		emit Voted(msg.sender, candidateIndex);
+	}
 
-        return (winners, winningVoteCount);
-    }
+	/// @notice Checks if age is within bounds
+	function isEligible(uint64 age) public view returns (bool) {
+		if (age < minAge) return false;
+		if (maxAge != 0 && age > maxAge) return false;
+		return true;
+	}
 
-    // Get the total number of candidates.
-    function getCandidateCount() external view returns (uint) {
-        return candidates.length;
-    }
+	/// @notice Returns list of candidates
+	function getCandidates() external view returns (Candidate[] memory) {
+		return candidates;
+	}
 
-    // Retrieve all candidates.
-    function getCandidates() external view returns (Candidate[] memory) {
-        return candidates;
-    }
+	/// @notice Computes winners after voting ends
+	/// @return winners Names of winners
+	/// @return winningVoteCount Vote count of winners
+	function getWinner() external view whenNotEnded returns (string[] memory winners, uint256 winningVoteCount)
+	{
+		if (!votingEnded) revert ErrorVotingNotStarted();
+
+		uint256 len = candidates.length;
+		uint256 maxVotes;
+		uint256 count;
+
+		for (uint256 i; i < len; ++i) {
+			uint256 v = candidates[i].voteCount;
+			if (v > maxVotes) maxVotes = v;
+		}
+		winningVoteCount = maxVotes;
+
+		for (uint256 i; i < len; ++i) {
+			if (candidates[i].voteCount == maxVotes) count++;
+		}
+
+		winners = new string[](count);
+		for (uint256 i; i < len; ++i) {
+			if (candidates[i].voteCount == maxVotes) {
+				winners[--count] = candidates[i].name;
+			}
+		}
+	}
 }

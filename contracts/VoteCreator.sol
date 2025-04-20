@@ -1,108 +1,113 @@
 // SPDX-License-Identifier: MIT
-pragma solidity >=0.8.7 <0.9.0;
+pragma solidity ^0.8.20;
 
-import './Auth.sol';
-import './Vote.sol';
+import "@openzeppelin/contracts/access/Ownable.sol";
+import "@openzeppelin/contracts/utils/structs/EnumerableSet.sol";
+import "./Vote.sol";
 
-contract VoteCreator {
-	struct Set {
-		address[] values;
-		mapping(address => bool) is_in;
-	}
+/// @title VoteCreator - A factory for deploying Vote contracts
+/// @notice Users can create Vote instances by paying a fee; owner can manage fees and withdraw proceeds.
+contract VoteCreator is Ownable {
+	using EnumerableSet for EnumerableSet.AddressSet;
 
-	function add(address user) internal {
-		if (!voteUsers.is_in[user]) {
-			voteUsers.values.push(user);
-			voteUsers.is_in[user] = true;
-		}
-	}
+	/// @dev Tracks addresses of users who have created votes
+	EnumerableSet.AddressSet private _creators;
 
-	Set private voteUsers;
+	/// @notice Fee required to create a new Vote contract
+	uint256 public voteCreationFee;
 
-	uint256 public authCreationFee = 1 ether;
-	uint256 public voteCreationFee = 0.5 ether;
+	/// @notice Total number of Vote contracts created
+	uint64 public totalVotes;
 
-	struct AuthData {
-		address authAddress;
-		string name;
-	}
-
+	/// @notice Details of a created Vote
 	struct VoteData {
 		address voteAddress;
-		string name;
-		address authAdd;
+		string voteName;
 	}
 
-	mapping(address => AuthData[]) public authContracts;
-	mapping(address => VoteData[]) public voteContracts;
+	/// @dev Maps creator address to their VoteData[]
+	mapping(address => VoteData[]) private _votesByCreator;
 
-	function createAuth(string memory _authName) public payable {
-		require(msg.value >= authCreationFee, 'Insufficient payment');
+	/// @dev Thrown when payment is insufficient
+	error InsufficientPayment(uint256 required, uint256 provided);
+	/// @dev Thrown when no votes exist
+	error NoVotesCreated();
 
-		Auth auth = new Auth(_authName);
-		address authAddress = address(auth);
-		authContracts[msg.sender].push(AuthData(authAddress, _authName));
+	/// @notice Emitted when a new Vote is deployed
+	event VoteCreated(address indexed creator, address voteAddress, string voteName);
+	/// @notice Emitted when the creation fee is updated
+	event VoteCreationFeeUpdated(uint256 oldFee, uint256 newFee);
+	/// @notice Emitted when accumulated fees are withdrawn
+	event FeesWithdrawn(address indexed to, uint256 amount);
+
+	/// @param _initialFee Initial fee to create votes
+	constructor(uint256 _initialFee) Ownable(msg.sender) {
+		voteCreationFee = _initialFee;
 	}
 
-	function createVote(address _authAddress, string memory _voteName, string[] memory candidateNames) public payable {
-		require(msg.value >= voteCreationFee, 'Insufficient payment');
-
-		Vote vote = new Vote(_authAddress, _voteName, candidateNames);
-		address voteAddress = address(vote);
-		voteContracts[msg.sender].push(VoteData(voteAddress, _voteName, _authAddress));
-		add(msg.sender);
+	/// @notice Updates the fee required to create a Vote
+	/// @param newFee The new creation fee (in wei)
+	function setVoteCreationFee(uint256 newFee) external onlyOwner {
+		emit VoteCreationFeeUpdated(voteCreationFee, newFee);
+		voteCreationFee = newFee;
 	}
 
-	function getAuthContracts() public view returns (AuthData[] memory) {
-		return authContracts[msg.sender];
+	/// @notice Deploys a new Vote contract
+	/// @param voteName The name of the vote
+	/// @param candidateNames Array of candidate names
+	/// @param minAge Minimum eligible age
+	/// @param maxAge Maximum eligible age (0 for no upper limit)
+	function createVote(
+		string calldata voteName,
+		string[] calldata candidateNames,
+		uint64 minAge,
+		uint64 maxAge
+	) external payable {
+		if (msg.value < voteCreationFee) {
+			revert InsufficientPayment({required: voteCreationFee, provided: msg.value});
+		}
+
+		Vote vote = new Vote(voteName, candidateNames, minAge, maxAge);
+		address voteAddr = address(vote);
+
+		_votesByCreator[msg.sender].push(VoteData(voteAddr, voteName));
+		_creators.add(msg.sender);
+		unchecked { totalVotes++; }
+
+		emit VoteCreated(msg.sender, voteAddr, voteName);
 	}
 
-	function getVoteContracts() public view returns (VoteData[] memory) {
-		return voteContracts[msg.sender];
+	/// @notice Returns Vote contracts created by caller
+	/// @return Array of VoteData structs
+	function getMyVotes() external view returns (VoteData[] memory) {
+		return _votesByCreator[msg.sender];
 	}
 
-	function getAllVoteContracts() public view returns (VoteData[] memory) {
-		uint256 count = 0;
-		VoteData[] memory allVoteContracts;
-		uint256 index = 0;
+	/// @notice Returns all Vote contracts created by all users
+	/// @dev Iterates over creators and aggregates their votes
+	/// @return allVotes Array of VoteData
+	function getAllVotes() external view returns (VoteData[] memory allVotes) {
+		uint64 count = totalVotes;
+		if (count == 0) revert NoVotesCreated();
 
-		for (uint k = 0; k < voteUsers.values.length; ++k) {
-			address sender = voteUsers.values[k];
-			for (uint256 i = 0; i < voteContracts[sender].length; i++) {
-				if (count == 0) {
-					allVoteContracts = new VoteData[](voteContracts[sender].length);
-				} else {
-					VoteData[] memory temp = new VoteData[](count + voteContracts[sender].length);
-					for (uint256 j = 0; j < count; j++) {
-						temp[j] = allVoteContracts[j];
-					}
-					allVoteContracts = temp;
-				}
-				allVoteContracts[index] = voteContracts[sender][i];
-				index++;
-				count++;
+		allVotes = new VoteData[](count);
+		uint256 idx;
+
+		for (uint256 i = 0; i < _creators.length(); ++i) {
+			address creator = _creators.at(i);
+			VoteData[] storage creatorVotes = _votesByCreator[creator];
+			for (uint256 j = 0; j < creatorVotes.length; ++j) {
+				allVotes[idx++] = creatorVotes[j];
 			}
 		}
-		return allVoteContracts;
 	}
 
-	function AccessToAuth(address _authAddress) public view returns (bool) {
-		AuthData[] memory auths = authContracts[msg.sender];
-		for (uint i = 0; i < auths.length; i++) {
-			if (auths[i].authAddress == _authAddress) {
-				return true;
-			}
-		}
-		return false;
-	}
-
-	function AccessToVote(address _voteAddress) public view returns (bool) {
-		VoteData[] memory auths = voteContracts[msg.sender];
-		for (uint i = 0; i < auths.length; i++) {
-			if (auths[i].voteAddress == _voteAddress) {
-				return true;
-			}
-		}
-		return false;
+	/// @notice Allows owner to withdraw collected fees
+	/// @param to Destination address for withdrawal
+	function withdrawFees(address payable to) external onlyOwner {
+		uint256 balance = address(this).balance;
+		if (balance == 0) revert NoVotesCreated();
+		to.transfer(balance);
+		emit FeesWithdrawn(to, balance);
 	}
 }

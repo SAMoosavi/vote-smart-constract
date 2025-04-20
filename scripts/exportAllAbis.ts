@@ -5,6 +5,9 @@ import path from 'path'
 const contractsDir = path.join(__dirname, '../artifacts/contracts')
 const outputDir = path.join(__dirname, '../frontend/src/build')
 
+const typeDir = path.join(__dirname, '../typechain-types/contracts')
+
+
 /**
  * Recursively scans a directory for JSON files (ignoring '.dbg.json' files).
  * @param dir - The directory to scan.
@@ -21,6 +24,24 @@ function getAllContractJsonFiles(dir: string): string[] {
 		if (stat.isDirectory()) {
 			files = files.concat(getAllContractJsonFiles(fullPath))
 		} else if (item.endsWith('.json') && !item.endsWith('.dbg.json')) {
+			files.push(fullPath)
+		}
+	}
+
+	return files
+}
+
+function getAllTypeFiles(dir: string): string[] {
+	let files: string[] = []
+
+	const items = fs.readdirSync(dir)
+	for (const item of items) {
+		const fullPath = path.join(dir, item)
+		const stat = fs.statSync(fullPath)
+
+		if (stat.isDirectory()) {
+			files = files.concat(getAllTypeFiles(fullPath))
+		} else if (item.endsWith('.ts')) {
 			files.push(fullPath)
 		}
 	}
@@ -58,3 +79,15 @@ for (const jsonFile of contractJsonFiles) {
 
 	console.log(`✅ Exported ABI: ${contractName} → ${path.relative(process.cwd(), outputPath)}`)
 }
+
+
+const typeFiles = getAllTypeFiles(typeDir)
+
+for (const typeFile of typeFiles) {
+	// Use the file name (minus extension) as the contract name.
+	const contractName = path.basename(typeFile, '.ts')
+	const outputPath = path.join(outputDir, `${contractName}.ts`)
+	fs.symlinkSync(typeFile, outputPath);
+	console.log(`✅ Exported Type: ${contractName} → ${path.relative(process.cwd(), outputPath)}`)
+}
+
