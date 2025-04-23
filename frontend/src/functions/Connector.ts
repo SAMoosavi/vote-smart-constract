@@ -1,11 +1,27 @@
-import { ethers } from 'ethers'
+import { JsonRpcProvider, Wallet } from 'ethers'
 
-export function connect(): { provider: ethers.JsonRpcProvider; wallet: ethers.Wallet } {
-	const RPC_URL = 'http://127.0.0.1:8545'
-	const PRIVATE_KEY = '0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e'
+/**
+ * Configuration for your JSON-RPC connection
+ */
+export interface ConnectionConfig {
+	/** RPC endpoint (defaults to http://127.0.0.1:8545) */
+	rpcUrl?: string
+	/** Your wallet’s private key (must be 0x-prefixed and 66 chars long) */
+	privateKey: string
+}
 
-	const provider = new ethers.JsonRpcProvider(RPC_URL)
-	const wallet = new ethers.Wallet(PRIVATE_KEY, provider)
+export function createConnection(config: ConnectionConfig): {
+	provider: JsonRpcProvider
+	wallet: Wallet
+} {
+	const rpcUrl = config.rpcUrl ?? 'http://127.0.0.1:8545'
+
+	// Basic validation of the key – avoids subtle bugs later
+	if (!config.privateKey.startsWith('0x') || config.privateKey.length !== 66)
+		throw new Error(`Invalid privateKey provided: expected a 0x-prefixed 64-byte hex string`)
+
+	const provider = new JsonRpcProvider(rpcUrl)
+	const wallet = new Wallet(config.privateKey, provider)
 
 	return { provider, wallet }
 }

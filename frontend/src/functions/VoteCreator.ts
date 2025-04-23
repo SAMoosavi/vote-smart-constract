@@ -1,88 +1,82 @@
-import { ethers } from 'ethers'
-import abi from '@/build/VoteCreator.abi.json'
-import { connect } from './Connector.ts'
+import { ContractTransactionResponse, parseEther } from 'ethers'
+import { type VoteCreator, VoteCreator__factory } from '@/build'
+import { createConnection } from './Connector.ts'
 
-function loadContract(): { provider: ethers.JsonRpcProvider; wallet: ethers.Wallet; contract: ethers.Contract } {
-	const { provider, wallet } = connect()
-
-	const CONTRACT_ADDRESS = '0x5FbDB2315678afecb367f032d93F642f64180aa3'
-	const contract = new ethers.Contract(CONTRACT_ADDRESS, abi, wallet)
-
-	return { provider, wallet, contract }
+export interface VoteCreatorConfig {
+	/** JSON-RPC endpoint (defaults to http://127.0.0.1:8545) */
+	rpcUrl?: string
+	/** 0x-prefixed 64-byte hex private key */
+	privateKey: string
+	/** Deployed VoteCreator address */
+	contractAddress: string
 }
 
-export const createAuth = async (name: string) => {
-	const { contract } = loadContract()
+export class VoteCreatorService {
+	private readonly contract: VoteCreator
 
-	try {
-		const value = ethers.parseEther('1')
-
-		const tx = await contract.createAuth(name, {
-			value: value,
-			gasLimit: 2152000,
+	constructor(private readonly config: VoteCreatorConfig) {
+		// wire up signer
+		const { wallet } = createConnection({
+			rpcUrl: config.rpcUrl,
+			privateKey: config.privateKey,
 		})
 
-		await tx.wait()
-		console.log('Transaction successful:', tx)
-	} catch (error) {
-		console.error('Error calling contract:', error)
+		// connect typed contract factory
+		this.contract = VoteCreator__factory.connect(config.contractAddress, wallet)
+	}
+
+	/** internal helper for consistent try/catch */
+	private async safe<T>(fn: () => Promise<T>): Promise<T> {
+		try {
+			return await fn()
+		} catch (err) {
+			console.error('[VoteCreatorService]', err)
+			throw err
+		}
+	}
+
+	/** deploy a new Vote (default fee=0.5 ETH, gasLimit=2.15 M) */
+	createVote(
+		voteName: string,
+		candidateNames: string[],
+		minAge: number,
+		maxAge: number,
+		fee = parseEther('0.5'),
+		gasLimit = 2_152_000,
+	): Promise<ContractTransactionResponse> {
+		return this.safe(() =>
+			this.contract.createVote(voteName, candidateNames, minAge, maxAge, { value: fee, gasLimit }),
+		)
+	}
+
+	/** get all votes you created */
+	getMyVotes(): Promise<VoteCreator.VoteDataStructOutput[]> {
+		return this.safe(() => this.contract.getMyVotes())
+	}
+
+	/** get every vote ever created */
+	getAllVotes(): Promise<VoteCreator.VoteDataStructOutput[]> {
+		return this.safe(() => this.contract.getAllVotes())
+	}
+
+	/** check if *you* created a given vote contract */
+	hasAccessToVote(voteAddr: string): Promise<boolean> {
+		return this.safe(() => this.contract.AccessToVote(voteAddr))
+	}
+
+	/** total votes ever created */
+	getTotalVotes(): Promise<bigint> {
+		return this.safe(() => this.contract.getNumberOfVotes())
+	}
+
+	/** how many votes *you* created */
+	getMyVoteCount(): Promise<bigint> {
+		return this.safe(() => this.contract.getNumberOfMyVotes())
 	}
 }
 
-export const createVote = async (auth_address: string, name: string, candidate_names: string[]) => {
-	const { contract } = loadContract()
-
-	try {
-		const value = ethers.parseEther('0.5')
-
-		const tx = await contract.createVote(auth_address, name, candidate_names, {
-			value: value,
-			gasLimit: 2152000,
-		})
-
-		await tx.wait()
-		console.log('Transaction successful:', tx)
-	} catch (error) {
-		console.error('Error calling contract:', error)
-	}
-}
-
-export async function getAuth() {
-	const { contract } = loadContract()
-
-	try {
-		return await contract.getAuthContracts()
-	} catch (error) {
-		console.error('Error calling contract:', error)
-	}
-}
-
-export async function getVote() {
-	const { contract } = loadContract()
-
-	try {
-		return await contract.getVoteContracts()
-	} catch (error) {
-		console.error('Error calling contract:', error)
-	}
-}
-
-export async function accessToAuth(address: string) {
-	const { contract } = loadContract()
-
-	try {
-		return await contract.AccessToAuth(address)
-	} catch (error) {
-		console.error('Error calling contract:', error)
-	}
-}
-
-export async function accessToVote(address: string) {
-	const { contract } = loadContract()
-
-	try {
-		return await contract.AccessToVote(address)
-	} catch (error) {
-		console.error('Error calling contract:', error)
-	}
-}
+export const vote_creator = new VoteCreatorService({
+	rpcUrl: 'http://127.0.0.1:8545',
+	privateKey: '0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e',
+	contractAddress: '0x73511669fd4dE447feD18BB79bAFeAC93aB7F31f',
+})

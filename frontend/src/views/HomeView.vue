@@ -28,21 +28,21 @@
 
 <script setup lang="ts">
 import { animate, utils } from 'animejs'
-import { useTemplateRef, watch } from 'vue'
+import { onMounted, useTemplateRef } from 'vue'
 import { RouterLink } from 'vue-router'
+import { vote_creator } from '@/functions/VoteCreator.ts'
 
 const number_of_vote_ref = useTemplateRef('number_of_vote')
 
-const number_of_voterum = 20
-
-watch(number_of_vote_ref, () => {
-	if (number_of_vote_ref.value != null) {
-		animate(number_of_vote_ref.value as HTMLElement,{
+onMounted(async () => {
+	vote_creator.getTotalVotes().then((response) => {
+		const number_of_voterum = Number(response)
+		animate(number_of_vote_ref.value as HTMLElement, {
 			modifier: utils.round(0),
 			innerHTML: [0, number_of_voterum],
 			easing: 'inBack',
 			duration: 2000,
 		})
-	}
+	})
 })
 </script>

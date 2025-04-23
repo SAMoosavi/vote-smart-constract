@@ -110,4 +110,29 @@ contract VoteCreator is Ownable {
 		to.transfer(balance);
 		emit FeesWithdrawn(to, balance);
 	}
+
+	/// @notice Checks if a user created a specific Vote contract
+	/// @param voteAddress The address of the vote contract to check
+	/// @return True if the caller created the Vote contract
+	function AccessToVote(address voteAddress) external view returns (bool) {
+		VoteData[] storage creatorVotes = _votesByCreator[msg.sender];
+		for (uint256 i = 0; i < creatorVotes.length; ++i) {
+			if (creatorVotes[i].voteAddress == voteAddress) {
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/// @notice Returns the total number of Vote contracts created
+	/// @return The total number of Vote contracts
+	function getNumberOfVotes() external view returns (uint64) {
+		return totalVotes;
+	}
+
+	/// @notice Returns the number of Vote contracts created by the caller
+	/// @return The number of votes created by the caller
+	function getNumberOfMyVotes() external view returns (uint256) {
+		return _votesByCreator[msg.sender].length;
+	}
 }

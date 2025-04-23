@@ -1,12 +1,7 @@
 import fs from 'fs'
 import path from 'path'
 
-// Define the paths to the artifacts and frontend contracts directories.
-const contractsDir = path.join(__dirname, '../artifacts/contracts')
 const outputDir = path.join(__dirname, '../frontend/src/build')
-
-const typeDir = path.join(__dirname, '../typechain-types/contracts')
-
 
 /**
  * Recursively scans a directory for JSON files (ignoring '.dbg.json' files).
@@ -31,26 +26,10 @@ function getAllContractJsonFiles(dir: string): string[] {
 	return files
 }
 
-function getAllTypeFiles(dir: string): string[] {
-	let files: string[] = []
-
-	const items = fs.readdirSync(dir)
-	for (const item of items) {
-		const fullPath = path.join(dir, item)
-		const stat = fs.statSync(fullPath)
-
-		if (stat.isDirectory()) {
-			files = files.concat(getAllTypeFiles(fullPath))
-		} else if (item.endsWith('.ts')) {
-			files.push(fullPath)
-		}
-	}
-
-	return files
-}
-
 // Ensure the output directory exists
 fs.mkdirSync(outputDir, { recursive: true })
+
+const contractsDir = path.join(__dirname, '../artifacts/contracts')
 
 // Get all JSON files from the contracts directory
 const contractJsonFiles = getAllContractJsonFiles(contractsDir)
@@ -80,14 +59,10 @@ for (const jsonFile of contractJsonFiles) {
 	console.log(`✅ Exported ABI: ${contractName} → ${path.relative(process.cwd(), outputPath)}`)
 }
 
+const contractName = path.join(__dirname, '../typechain-types/index.ts')
 
-const typeFiles = getAllTypeFiles(typeDir)
+const outputPath = path.join(outputDir, 'index.ts')
+if (fs.existsSync(outputPath)) fs.unlinkSync(outputPath)
 
-for (const typeFile of typeFiles) {
-	// Use the file name (minus extension) as the contract name.
-	const contractName = path.basename(typeFile, '.ts')
-	const outputPath = path.join(outputDir, `${contractName}.ts`)
-	fs.symlinkSync(typeFile, outputPath);
-	console.log(`✅ Exported Type: ${contractName} → ${path.relative(process.cwd(), outputPath)}`)
-}
-
+fs.symlinkSync(contractName, outputPath)
+console.log(`✅ Exported Type: ${contractName} → ${path.relative(process.cwd(), outputPath)}`)
