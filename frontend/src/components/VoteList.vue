@@ -43,39 +43,65 @@
 								"
 								class="flex flex-col gap-5 pt-5 items-center text-center"
 							>
-								<input
-									type="text"
-									v-model.trim.lazy="vote_name"
-									autofocus
-									placeholder="vote name"
-									required
-									class="input validator input-secondary w-full"
-								/>
+								<label class="floating-label w-full">
+									<input
+										type="text"
+										v-model.trim.lazy="form.vote_name"
+										autofocus
+										placeholder="vote name"
+										required
+										class="input validator input-secondary w-full"
+									/>
+									<span>vote name</span>
+								</label>
 
-								<select class="select select-secondary w-full validator" required v-model="auth_address">
-									<option disabled selected value="">select an auth</option>
-									<option v-for="auth in auths" :key="auth[1]" :value="auth[0]">{{ auth[1] }}</option>
-								</select>
+								<label class="floating-label w-full">
+									<input
+										type="number"
+										v-model.number.trim.lazy="form.min_age"
+										autofocus
+										placeholder="minimum age"
+										required
+										class="input validator input-secondary w-full"
+									/>
+									<span>minimum age</span>
+								</label>
 
-								<input
-									type="number"
-									v-model.number.trim.lazy="number_of_candidate"
-									autofocus
-									placeholder="vote name"
-									required
-									class="input validator input-secondary w-full"
-								/>
+								<label class="floating-label w-full">
+									<input
+										type="number"
+										v-model.number.trim.lazy="form.max_age"
+										autofocus
+										placeholder="maximum age"
+										required
+										class="input validator input-secondary w-full"
+									/>
+									<span>maximum age</span>
+								</label>
 
-								<input
-									type="text"
-									v-for="i in number_of_candidate"
-									:key="i"
-									v-model.trim.lazy="candidate_names[i - 1]"
-									autofocus
-									placeholder="vote name"
-									required
-									class="input validator input-secondary w-full"
-								/>
+								<label class="floating-label w-full">
+									<input
+										type="number"
+										v-model.number.trim.lazy="form.number_of_candidate"
+										autofocus
+										placeholder="number of candidate"
+										required
+										class="input validator input-secondary w-full"
+									/>
+									<span>number of candidate</span>
+								</label>
+
+								<label class="floating-label w-full" v-for="i in form.number_of_candidate" :key="i">
+									<input
+										type="text"
+										v-model.trim.lazy="form.candidate_names[i - 1]"
+										autofocus
+										placeholder="candidate name"
+										required
+										class="input validator input-secondary w-full"
+									/>
+									<span>candidate name {{i}}</span>
+								</label>
 
 								<button :disabled="creating" class="btn btn-block btn-dash btn-primary" type="submit">
 									<span v-show="creating" class="loading loading-spinner loading-md"></span>
@@ -112,48 +138,85 @@
 </template>
 
 <script setup lang="ts">
-import { createVote, getAuth, getVote } from '@/functions/VoteCreator.ts'
-import { onMounted, ref, useTemplateRef, watch } from 'vue'
+import { useContractStore } from '@/stores/contract.ts'
+import { onMounted, reactive, ref, useTemplateRef, watch } from 'vue'
+import { toast } from 'vue3-toastify'
+import { type VoteCreator } from '@/build/index.ts'
 
-const votes = ref([])
+const contractStore = useContractStore()
 
-const vote_name = ref('')
-const auth_address = ref('')
+const votes = ref<VoteCreator.VoteDataStructOutput[]>()
+
+interface Form {
+	vote_name: string
+	min_age: number
+	max_age: number
+	candidate_names: string[]
+	number_of_candidate: number
+}
+
+const form = reactive<Form>({
+	vote_name: '',
+	min_age: 0,
+	max_age: 0,
+	candidate_names: ['', ''],
+	number_of_candidate: 2,
+})
+
+watch(
+	() => form.number_of_candidate,
+	(value) => {
+		const v = Math.max(2, value)
+		form.number_of_candidate = v
+
+		const diff = v - form.candidate_names.length
+		if (diff > 0) form.candidate_names.push(...Array(diff).fill(''))
+		else if (diff < 0) form.candidate_names.splice(v)
+	},
+)
+
 const creating = ref(false)
 const create_vote_modal_ref = useTemplateRef('create_vote_modal')
-const number_of_candidate = ref(2)
-const candidate_names = ref([])
-
-watch(number_of_candidate, (v) => {
-	if (v < 2) number_of_candidate.value = 2
-})
 
 async function create_vote() {
 	if (creating.value) return
-	if (vote_name.value === '') throw new Error('please enter name of vote name')
+	if (form.vote_name === '') {
+		toast.error('please enter name of vote name')
+		return
+	}
+	if (form.min_age < 0) {
+		toast.error('the minimum age is less than 0')
+		return
+	}
+	if (form.max_age != 0 && form.min_age > form.max_age) {
+		toast.error('the maximum age is less than minimum age')
+		return
+	}
 
 	creating.value = true
-	await createVote(auth_address.value, vote_name.value, candidate_names.value)
-	await get_vote()
-	creating.value = false
-	vote_name.value = ''
-	auth_address.value = ''
-	candidate_names.value = []
-	number_of_candidate.value = 2
+	contractStore.vote_creator
+		.createVote(form.vote_name, form.candidate_names, form.min_age, form.max_age)
+		.then(async () => {
+			toast.success('create votereum successfully.')
+			await get_vote()
+		})
+		.catch((e) => {
+			toast.error('create votereum failed')
+			console.error(e)
+		})
+		.finally(() => {
+			creating.value = false
+			form.vote_name = ''
+			form.candidate_names = []
+			form.number_of_candidate = 2
+		})
 }
 
 async function get_vote() {
-	votes.value = await getVote()
+	contractStore.vote_creator.getMyVotes().then((res) => {
+		votes.value = res
+	})
 }
 
-const auths = ref([])
-
-async function get_auths() {
-	auths.value = await getAuth()
-}
-
-onMounted(() => {
-	get_vote()
-	get_auths()
-})
+onMounted(get_vote)
 </script>

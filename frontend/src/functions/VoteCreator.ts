@@ -74,9 +74,3 @@ export class VoteCreatorService {
 		return this.safe(() => this.contract.getNumberOfMyVotes())
 	}
 }
-
-export const vote_creator = new VoteCreatorService({
-	rpcUrl: 'http://127.0.0.1:8545',
-	privateKey: '0xdf57089febbacf7ba0bc227dafbffa9fc08a93fdc68e1e42411a14efcf23656e',
-	contractAddress: '0x73511669fd4dE447feD18BB79bAFeAC93aB7F31f',
-})

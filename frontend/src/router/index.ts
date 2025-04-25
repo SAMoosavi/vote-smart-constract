@@ -22,11 +22,6 @@ const router = createRouter({
 			component: () => import('../views/DashboardView.vue'),
 		},
 		{
-			path: '/auth/:address',
-			name: 'show-auth',
-			component: () => import('../views/AuthView.vue'),
-		},
-		{
 			path: '/404',
 			name: '404',
 			component: () => import('../views/404View.vue'),

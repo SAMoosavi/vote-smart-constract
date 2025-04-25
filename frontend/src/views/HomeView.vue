@@ -30,12 +30,13 @@
 import { animate, utils } from 'animejs'
 import { onMounted, useTemplateRef } from 'vue'
 import { RouterLink } from 'vue-router'
-import { vote_creator } from '@/functions/VoteCreator.ts'
+import { useContractStore } from '@/stores/contract'
 
 const number_of_vote_ref = useTemplateRef('number_of_vote')
+const contract = useContractStore();
 
 onMounted(async () => {
-	vote_creator.getTotalVotes().then((response) => {
+	contract.vote_creator.getTotalVotes().then((response) => {
 		const number_of_voterum = Number(response)
 		animate(number_of_vote_ref.value as HTMLElement, {
 			modifier: utils.round(0),
