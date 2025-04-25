@@ -13,13 +13,27 @@
 								viewBox="0 0 24 24"
 								stroke="currentColor"
 							>
-								<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h8m-8 6h16" />
+								<path
+									stroke-linecap="round"
+									stroke-linejoin="round"
+									stroke-width="2"
+									d="M4 6h16M4 12h8m-8 6h16"
+								/>
 							</svg>
 						</div>
-						<ul tabindex="0" class="menu menu-sm dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow">
-							<li><RouterLink to="/">Home</RouterLink></li>
-							<li><RouterLink to="/dashboard">dashboard</RouterLink></li>
-							<li><RouterLink to="/about">About</RouterLink></li>
+						<ul
+							tabindex="0"
+							class="menu menu-sm dropdown-content bg-base-100 rounded-box z-1 mt-3 w-52 p-2 shadow"
+						>
+							<li>
+								<RouterLink to="/">Home</RouterLink>
+							</li>
+							<li>
+								<RouterLink to="/dashboard">dashboard</RouterLink>
+							</li>
+							<li>
+								<RouterLink to="/about">About</RouterLink>
+							</li>
 						</ul>
 					</div>
 					<RouterLink
@@ -31,9 +45,15 @@
 				</div>
 				<div class="navbar-center hidden lg:flex">
 					<ul class="menu menu-horizontal px-1">
-						<li><RouterLink to="/">Home</RouterLink></li>
-						<li><RouterLink to="/dashboard">dashboard</RouterLink></li>
-						<li><RouterLink to="/about">About</RouterLink></li>
+						<li>
+							<RouterLink to="/">Home</RouterLink>
+						</li>
+						<li v-if="user.isLoggedIn">
+							<RouterLink to="/dashboard">dashboard</RouterLink>
+						</li>
+						<li>
+							<RouterLink to="/about">About</RouterLink>
+						</li>
 					</ul>
 				</div>
 				<div class="navbar-end">
@@ -55,13 +75,39 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
+import { useUserStore } from '@/stores/user.ts'
+import { createConnection, DEFLATE_PRIVATE_KEY } from '@/functions/Connector.ts'
+import { getUser } from '@/functions/api-handler.ts'
+import { toast } from 'vue3-toastify'
 
+const user = useUserStore()
 const themes = ['dracula', 'dark', 'light']
 const theme = ref(themes[0])
 
 function change_theme(name: string) {
 	theme.value = name
 }
+
+onMounted(async () => {
+	if (!user.isLoggedIn) {
+		try {
+			const { wallet } = createConnection({ privateKey: DEFLATE_PRIVATE_KEY })
+
+			const public_address = wallet.address
+			const digital_signature = await wallet.signMessage(public_address)
+
+			getUser(public_address)
+				.then((res) => {
+					const user = res.data
+					if (user.digital_signature == digital_signature) useUserStore().loginUser(user)
+					toast.success('automatically login successful')
+				})
+				.catch(() => {})
+		} catch {
+			toast.error('invalid private key')
+		}
+	}
+})
 </script>

@@ -1,9 +1,11 @@
 import express from 'express'
 import { createUser, getUser } from './db'
+import cors from 'cors';
 
 const app = express()
 const PORT = 3000
 
+app.use(cors());
 app.use(express.json())
 
 // @ts-ignore
@@ -56,6 +58,10 @@ app.get('/users/:public_address', async (req, res) => {
 		console.error('Fetch user error:', error)
 		res.status(500).json({ error: 'Failed to fetch user' })
 	}
+})
+
+app.get('/', async (req, res) => {
+	res.status(200).json({ message: 'Hello World' })
 })
 
 app.listen(PORT, () => {

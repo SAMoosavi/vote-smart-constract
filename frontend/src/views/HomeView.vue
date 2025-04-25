@@ -19,8 +19,11 @@
 				</span>
 				have been created.
 			</h2>
-			<RouterLink to="/dashboard" class="btn btn-primary btn-dash lg:flex-1/3 mx-auto">
+			<RouterLink v-if="user.isLoggedIn" to="/dashboard" class="btn btn-primary btn-dash lg:flex-1/3 mx-auto">
 				create your Votereum
+			</RouterLink>
+			<RouterLink v-else to="/register" class="btn btn-primary btn-dash lg:flex-1/3 mx-auto">
+				create account
 			</RouterLink>
 		</div>
 	</main>
@@ -31,9 +34,11 @@ import { animate, utils } from 'animejs'
 import { onMounted, useTemplateRef } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useContractStore } from '@/stores/contract'
+import { useUserStore } from '@/stores/user.ts'
 
 const number_of_vote_ref = useTemplateRef('number_of_vote')
 const contract = useContractStore();
+const user = useUserStore();
 
 onMounted(async () => {
 	contract.vote_creator.getTotalVotes().then((response) => {
