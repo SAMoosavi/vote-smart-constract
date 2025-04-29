@@ -36,11 +36,10 @@
 								<h3 class="text-lg font-bold">Create Vote</h3>
 								<form
 									@submit.prevent="
-										() => {
+										() =>
 											create_vote()
 												.then(() => create_vote_modal_ref?.close())
-												.catch(() => {})
-										}
+												.catch((e) => toast.error(e))
 									"
 									class="flex flex-col gap-5 pt-5 items-center text-center"
 								>
@@ -188,39 +187,40 @@ watch(
 const creating = ref(false)
 const create_vote_modal_ref = useTemplateRef('create_vote_modal')
 
+function hasDuplicates(arr: string[]): boolean {
+	const seen = new Set<string>()
+	for (const item of arr) {
+		const trimmed = item.trim()
+		if (seen.has(trimmed)) return true
+		seen.add(trimmed)
+	}
+	return false
+}
+
 async function create_vote() {
 	if (creating.value) return
-	if (form.vote_name === '') {
-		toast.error('please enter name of vote name')
-		return
-	}
-	if (form.min_age < 0) {
-		toast.error('the minimum age is less than 0')
-		return
-	}
-	if (form.max_age != 0 && form.min_age > form.max_age) {
-		toast.error('the maximum age is less than minimum age')
-		return
-	}
+
+	if (form.vote_name === '') throw 'please enter name of vote name'
+	if (form.min_age < 0) throw 'the minimum age is less than 0'
+	if (form.max_age != 0 && form.min_age > form.max_age) throw 'the maximum age is less than minimum age'
+	if (hasDuplicates(form.candidate_names)) throw 'Duplicate name found in candidate names'
 
 	creating.value = true
 	contractStore.vote_creator
 		.createVote(form.vote_name, form.candidate_names, form.min_age, form.max_age)
 		.then(async () => {
 			toast.success('create votereum successfully.')
-			await get_vote()
-		})
-		.catch((e) => {
-			toast.error('create votereum failed')
-			console.error(e)
-		})
-		.finally(() => {
 			creating.value = false
 			form.vote_name = ''
 			form.candidate_names = []
 			form.number_of_candidate = 2
 			form.min_age = 0
 			form.max_age = 0
+			await get_vote()
+		})
+		.catch((e) => {
+			toast.error('create votereum failed')
+			console.error(e)
 		})
 }
 
