@@ -135,6 +135,15 @@ contract Vote is Ownable {
 		return candidates;
 	}
 
+	/// @notice Returns list of candidate names
+	function getCandidateNames() external view returns (string[] memory) {
+		string[] memory names = new string[](candidates.length);
+		for (uint i = 0; i < candidates.length; i++)
+			names[i] = candidates[i].name;
+
+		return names;
+	}
+
 	/// @notice Computes winners after voting ends
 	/// @return winners Names of winners
 	/// @return winningVoteCount Vote count of winners
