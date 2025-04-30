@@ -1,6 +1,6 @@
 <template>
 	<main class="w-full pt-10 gap-15 flex flex-col items-center">
-		<div class="grid gap-5 lg:grid-cols-2 grid-cols-1">
+		<div :class="{ 'grid gap-5 lg:grid-cols-2 grid-cols-1': access, '': !access }">
 			<div v-if="access" class="card">
 				<div class="card-title self-center">
 					<h2 class="text-5xl font-bold">Manage</h2>
@@ -32,7 +32,7 @@
 						<li class="list-row items-center" v-for="(val, index) in candidate_names" :key="index">
 							<h3 class="text-3xl">{{ val }}</h3>
 							<button
-								:disabled="!votingStarted || hasVoted"
+								:disabled="!votingStarted || hasVoted || votingEnded"
 								@click="vote_handler(val, index)"
 								class="btn btn-square btn-ghost ml-auto"
 							>
