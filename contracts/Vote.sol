@@ -50,8 +50,9 @@ contract Vote is Ownable {
 		string memory _voteName,
 		string[] memory candidateNames,
 		uint64 _minAge,
-		uint64 _maxAge
-	) Ownable(msg.sender) {
+		uint64 _maxAge,
+		address _vote_creator
+	) Ownable(_vote_creator) {
 		require(bytes(_voteName).length > 0, "Vote name required");
 		require(candidateNames.length > 0, "At least one candidate required");
 		if (_maxAge != 0) require(_maxAge >= _minAge, "maxAge < minAge");

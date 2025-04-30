@@ -67,7 +67,7 @@ contract VoteCreator is Ownable {
 			revert InsufficientPayment({required: voteCreationFee, provided: msg.value});
 		}
 
-		Vote vote = new Vote(voteName, candidateNames, minAge, maxAge);
+		Vote vote = new Vote(voteName, candidateNames, minAge, maxAge, msg.sender);
 		address voteAddr = address(vote);
 
 		_votesByCreator[msg.sender].push(VoteData(voteAddr, voteName));
