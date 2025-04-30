@@ -1,6 +1,9 @@
 <template>
 	<main class="w-full pt-10 gap-15 flex flex-col items-center">
-		<div :class="{ 'grid gap-5 lg:grid-cols-2 grid-cols-1': access, '': !access }">
+		<div v-if="votingEnded">
+			v-if="votingEnded"
+		</div>
+		<div v-else :class="{ 'grid gap-5 lg:grid-cols-2 grid-cols-1': access, '': !access }">
 			<div v-if="access" class="card">
 				<div class="card-title self-center">
 					<h2 class="text-5xl font-bold">Manage</h2>
