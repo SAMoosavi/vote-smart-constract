@@ -14,7 +14,7 @@ export interface VoteConfig {
 export class VoteService {
 	private readonly contract: Vote
 
-	constructor(private readonly config: { rpcUrl: string; privateKey: string; contractAddress: string }) {
+	constructor(private readonly config: VoteConfig) {
 		// wire up signer
 		const { wallet } = createConnection({
 			rpcUrl: config.rpcUrl,
