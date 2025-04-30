@@ -30,12 +30,13 @@ export class VoteService {
 		try {
 			return await fn()
 		} catch (err) {
-			console.error('[VoteService]', err)
-			throw err
+			if (err && typeof err == 'object' && 'data' in err)
+				throw `[VoteService] ${Vote__factory.createInterface().parseError(err.data).name}`
+			else throw err
 		}
 	}
 
-	getCandidates(): Promise<Vote.CandidateStructOutput> {
+	getCandidates(): Promise<Vote.CandidateStructOutput[]> {
 		return this.safe(() => this.contract.getCandidates())
 	}
 
@@ -47,7 +48,34 @@ export class VoteService {
 		return this.safe(() => this.contract.startVoting())
 	}
 
+	votingStarted(): Promise<boolean> {
+		return this.safe(() => this.contract.votingStarted())
+	}
+
+	votingEnded(): Promise<boolean> {
+		return this.safe(() => this.contract.votingEnded())
+	}
+
 	endVoting(): Promise<ContractTransactionResponse> {
 		return this.safe(() => this.contract.endVoting())
+	}
+
+	getWinner(): Promise<{ winners: string[]; winningVoteCount: bigint }> {
+		return this.safe(async () => {
+			const [winners, winningVoteCount] = await this.contract.getWinner()
+			return { winners, winningVoteCount }
+		})
+	}
+
+	vote(candidateIndex: number, age: number, nonce: bigint, signature: string): Promise<ContractTransactionResponse> {
+		return this.safe(() => this.contract.vote(candidateIndex, age, nonce, signature))
+	}
+
+	getNonce(address: string): Promise<bigint> {
+		return this.safe(() => this.contract.nonces(address))
+	}
+
+	hasVoted(address: string): Promise<boolean> {
+		return this.safe(() => this.contract.hasVoted(address))
 	}
 }
