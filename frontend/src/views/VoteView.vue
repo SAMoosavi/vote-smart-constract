@@ -1,7 +1,9 @@
 <template>
 	<main class="w-full pt-10 gap-15 flex flex-col items-center">
-		<PieChart class="max-h-96" :labels="chartLabels" :data="chartData" />
-
+		<div v-if="total_vote > 0">
+			<PieChart class="max-h-96" :labels="chartLabels" :data="chartData" />
+		</div>
+		<p v-else class="text-center text-primary mt-4">No votes yet</p>
 		<div :class="{ 'grid gap-5 lg:grid-cols-2 grid-cols-1': access, '': !access }">
 			<div v-if="access" class="card">
 				<div class="card-title self-center">
@@ -27,15 +29,40 @@
 					<h2 class="text-5xl font-bold">Candidate list</h2>
 				</div>
 
-				<div class="divider"></div>
+				<div class="divider">
+					<span
+						class="badge duration-500 transition-all"
+						:class="{
+							'badge-warning': !votingStarted,
+							'badge-error': votingEnded,
+							'badge-success': votingStarted && !votingEnded,
+						}"
+					>
+						<template v-if="!votingStarted">Not started</template>
+						<template v-else-if="votingEnded">Ended</template>
+						<template v-else>Ongoing</template>
+					</span>
+				</div>
 
 				<div class="card-body">
+					<div class="flex gap-4 text-base justify-center">
+						<span v-if="min_age > 0">
+							Min age: <strong>{{ min_age }}</strong>
+						</span>
+						<span v-if="max_age > 0">
+							Max age: <strong>{{ max_age }}</strong>
+						</span>
+						<span>
+							Your age: <strong>{{ user?.age }}</strong>
+						</span>
+					</div>
+
 					<ul class="list">
 						<li class="list-row items-center" v-for="(val, index) in candidate_names" :key="index">
 							<h3 class="text-3xl">{{ val }}</h3>
 							<button
-								:disabled="!votingStarted || hasVoted || votingEnded"
-								@click="vote_handler(val, index)"
+								:disabled="!votingStarted || hasVoted || votingEnded || !is_eligible"
+								@click="vote_handler(index)"
 								class="btn btn-square btn-ghost ml-auto"
 							>
 								<svg
@@ -84,9 +111,6 @@ const vote = new VoteService({
 	contractAddress: vote_address,
 })
 
-const candidate_names = ref<string[]>([])
-const access = ref<boolean>(false)
-
 const user = ref<User | null>()
 
 onMounted(async () => {
@@ -95,22 +119,33 @@ onMounted(async () => {
 		toast.error('You are not logged in')
 	}
 
-	await Promise.all([voting_started(), voting_ended(), has_voted(), loadCandidateNames(), checkAccessToVote()])
+	await Promise.all([
+		voting_started(),
+		voting_ended(),
+		has_voted(),
+		loadCandidateNames(),
+		checkAccessToVote(),
+		getMinAge(),
+		getMaxAge(),
+		isEligible(),
+	])
 })
+
+const candidate_names = ref<string[]>([])
 
 async function loadCandidateNames() {
 	vote.getCandidateNames()
-		.then((candidateNames) => {
-			candidate_names.value = candidateNames
-		})
+		.then((candidateNames) => (candidate_names.value = candidateNames))
 		.catch(toast.error)
 }
+
+const access = ref<boolean>(false)
 
 async function checkAccessToVote() {
 	vote_creator_store.vote_creator.hasAccessToVote(vote_address).then((r) => (access.value = r))
 }
 
-async function vote_handler(name: string, index: number) {
+async function vote_handler(index: number) {
 	if (!user.value) {
 		toast.error('User data is missing')
 		return
@@ -143,9 +178,7 @@ async function vote_handler(name: string, index: number) {
 
 function start_vote() {
 	vote.startVoting()
-		.then(() => {
-			toast.success('voterume started')
-		})
+		.then(() => toast.success('voterume started'))
 		.catch(toast.error)
 		.finally(voting_started)
 }
@@ -160,17 +193,13 @@ const votingEnded = ref<boolean>(false)
 
 async function voting_ended() {
 	vote.votingEnded()
-		.then((r) => {
-			votingEnded.value = r
-		})
+		.then((r) => (votingEnded.value = r))
 		.finally(get_candidates_vote)
 }
 
 function end_vote() {
 	vote.endVoting()
-		.then(() => {
-			toast.success('voterume ended')
-		})
+		.then(() => toast.success('voterume ended'))
 		.catch(toast.error)
 		.finally(voting_ended)
 }
@@ -181,16 +210,13 @@ async function has_voted() {
 	if (!user.value) return
 
 	const public_address = user.value.public_address
-
 	vote.hasVoted(public_address).then((r) => (hasVoted.value = r))
 }
 
 const candidate_vote = ref<Vote.CandidateStructOutput[]>()
 
 async function get_candidates_vote() {
-	vote.getCandidates().then((candidates) => {
-		candidate_vote.value = candidates
-	})
+	vote.getCandidates().then((candidates) => (candidate_vote.value = candidates))
 }
 
 const total_vote = computed<bigint>(
@@ -199,7 +225,28 @@ const total_vote = computed<bigint>(
 
 const chartLabels = computed(() => candidate_vote.value?.map((c) => c.name) ?? [])
 
-const chartData = computed(
-	() => candidate_vote.value?.map((c) => Number((c.voteCount * 10000n) / total_vote.value) / 100) ?? [],
-)
+const chartData = computed(() => {
+	if (total_vote.value)
+		return candidate_vote.value?.map((c) => Number((c.voteCount * 10000n) / total_vote.value) / 100) ?? []
+	else return []
+})
+
+const min_age = ref<bigint>(0n)
+
+async function getMinAge() {
+	vote.getMinAge().then((r) => (min_age.value = r))
+}
+
+const max_age = ref<bigint>(0n)
+
+async function getMaxAge() {
+	vote.getMaxAge().then((r) => (max_age.value = r))
+}
+
+const is_eligible = ref(false)
+
+async function isEligible() {
+	if (!user.value) return
+	vote.isEligible(BigInt(user.value.age)).then((r) => (is_eligible.value = r))
+}
 </script>

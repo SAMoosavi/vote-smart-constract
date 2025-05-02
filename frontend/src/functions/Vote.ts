@@ -78,4 +78,16 @@ export class VoteService {
 	hasVoted(address: string): Promise<boolean> {
 		return this.safe(() => this.contract.hasVoted(address))
 	}
+
+	getMinAge(): Promise<bigint> {
+		return this.safe(() => this.contract.minAge())
+	}
+
+	getMaxAge(): Promise<bigint> {
+		return this.safe(() => this.contract.maxAge())
+	}
+
+	isEligible(age: bigint): Promise<boolean> {
+		return this.safe(() => this.contract.isEligible(age))
+	}
 }
