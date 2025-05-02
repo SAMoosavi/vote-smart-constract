@@ -1,9 +1,9 @@
 <template>
 	<main class="w-full pt-10 gap-15 flex flex-col items-center">
-		<div v-if="votingEnded">
-			v-if="votingEnded"
+		<div class="text-base-content" v-if="votingEnded">
+			<div v-for="a in candidate_vote" :key="a.name">{{ a.name }}: {{ (a.voteCount / total_vote) * 100n }}%</div>
 		</div>
-		<div v-else :class="{ 'grid gap-5 lg:grid-cols-2 grid-cols-1': access, '': !access }">
+		<div :class="{ 'grid gap-5 lg:grid-cols-2 grid-cols-1': access, '': !access }">
 			<div v-if="access" class="card">
 				<div class="card-title self-center">
 					<h2 class="text-5xl font-bold">Manage</h2>
@@ -66,17 +66,18 @@
 import { useRoute } from 'vue-router'
 import { VoteService } from '@/functions/Vote.ts'
 import { createConnection, DEFLATE_PRIVATE_KEY } from '@/functions/Connector.ts'
-import { onMounted, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { toast } from 'vue3-toastify'
 import { useContractStore } from '@/stores/contract.ts'
 import { useUserStore } from '@/stores/user.ts'
 import { ethers } from 'ethers'
+import type { User } from '@/functions/api-handler.ts'
+import type { Vote } from '@/build'
 
 const route = useRoute()
 const vote_address = route.params.address as string
 
 const vote_creator_store = useContractStore()
-const user = useUserStore()
 
 const vote = new VoteService({
 	privateKey: DEFLATE_PRIVATE_KEY,
@@ -86,27 +87,37 @@ const vote = new VoteService({
 const candidate_names = ref<string[]>([])
 const access = ref<boolean>(false)
 
+const user = ref<User | null>()
+
 onMounted(async () => {
-	voting_started()
-	voting_ended()
-	has_voted()
+	user.value = useUserStore().user
+	if (user.value) {
+		toast.error('You are not logged in')
+	}
+
+	await Promise.all([voting_started(), voting_ended(), has_voted(), loadCandidateNames(), checkAccessToVote()])
+})
+
+async function loadCandidateNames() {
 	vote.getCandidateNames()
 		.then((candidateNames) => {
 			candidate_names.value = candidateNames
 		})
 		.catch(toast.error)
+}
 
+async function checkAccessToVote() {
 	vote_creator_store.vote_creator.hasAccessToVote(vote_address).then((r) => (access.value = r))
-})
+}
 
 async function vote_handler(name: string, index: number) {
-	if (!user.user) {
+	if (!user.value) {
 		toast.error('User data is missing')
 		return
 	}
 	const { wallet } = createConnection({ privateKey: DEFLATE_PRIVATE_KEY })
-	const public_address = user.user.public_address
-	const age = user.user.age
+	const public_address = user.value.public_address
+	const age = user.value.age
 
 	vote.getNonce(public_address)
 		.then((nonce) => {
@@ -120,11 +131,11 @@ async function vote_handler(name: string, index: number) {
 					vote.vote(index, age, nonce, signature)
 						.then(() => toast.success('Vote successfully submitted'))
 						.catch(toast.error)
+						.finally(has_voted)
 				})
 				.catch(toast.error)
 		})
 		.catch(toast.error)
-		.finally(has_voted)
 }
 
 function start_vote() {
@@ -138,16 +149,18 @@ function start_vote() {
 
 const votingStarted = ref<boolean>(false)
 
-function voting_started() {
+async function voting_started() {
 	vote.votingStarted().then((r) => (votingStarted.value = r))
 }
 
 const votingEnded = ref<boolean>(false)
 
-function voting_ended() {
-	vote.votingEnded().then((r) => {
-		votingEnded.value = r
-	})
+async function voting_ended() {
+	vote.votingEnded()
+		.then((r) => {
+			votingEnded.value = r
+		})
+		.finally(get_candidates_vote)
 }
 
 function end_vote() {
@@ -161,14 +174,22 @@ function end_vote() {
 
 const hasVoted = ref(false)
 
-function has_voted() {
-	if (!user.user) {
-		toast.error('User data is missing')
-		return
-	}
+async function has_voted() {
+	if (!user.value) return
 
-	const public_address = user.user.public_address
+	const public_address = user.value.public_address
 
 	vote.hasVoted(public_address).then((r) => (hasVoted.value = r))
 }
+
+const candidate_vote = ref<Vote.CandidateStructOutput[]>()
+
+async function get_candidates_vote() {
+	vote.getCandidates().then((candidates) => {
+		candidate_vote.value = candidates
+		console.log(candidates)
+	})
+}
+
+const total_vote = computed<bigint>(() => candidate_vote.value?.reduce((sum, candidate) => sum + candidate.voteCount, 0n) ?? 0n)
 </script>
