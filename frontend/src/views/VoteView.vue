@@ -1,8 +1,7 @@
 <template>
 	<main class="w-full pt-10 gap-15 flex flex-col items-center">
-		<div class="text-base-content" v-if="votingEnded">
-			<div v-for="a in candidate_vote" :key="a.name">{{ a.name }}: {{ (a.voteCount / total_vote) * 100n }}%</div>
-		</div>
+		<PieChart class="max-h-96" :labels="chartLabels" :data="chartData" />
+
 		<div :class="{ 'grid gap-5 lg:grid-cols-2 grid-cols-1': access, '': !access }">
 			<div v-if="access" class="card">
 				<div class="card-title self-center">
@@ -73,6 +72,7 @@ import { useUserStore } from '@/stores/user.ts'
 import { ethers } from 'ethers'
 import type { User } from '@/functions/api-handler.ts'
 import type { Vote } from '@/build'
+import PieChart from '@/components/PieChart.vue'
 
 const route = useRoute()
 const vote_address = route.params.address as string
@@ -129,7 +129,10 @@ async function vote_handler(name: string, index: number) {
 				.signMessage(ethers.getBytes(message))
 				.then((signature) => {
 					vote.vote(index, age, nonce, signature)
-						.then(() => toast.success('Vote successfully submitted'))
+						.then(() => {
+							toast.success('Vote successfully submitted')
+							get_candidates_vote().catch(toast.error)
+						})
 						.catch(toast.error)
 						.finally(has_voted)
 				})
@@ -187,9 +190,16 @@ const candidate_vote = ref<Vote.CandidateStructOutput[]>()
 async function get_candidates_vote() {
 	vote.getCandidates().then((candidates) => {
 		candidate_vote.value = candidates
-		console.log(candidates)
 	})
 }
 
-const total_vote = computed<bigint>(() => candidate_vote.value?.reduce((sum, candidate) => sum + candidate.voteCount, 0n) ?? 0n)
+const total_vote = computed<bigint>(
+	() => candidate_vote.value?.reduce((sum, candidate) => sum + candidate.voteCount, 0n) ?? 0n,
+)
+
+const chartLabels = computed(() => candidate_vote.value?.map((c) => c.name) ?? [])
+
+const chartData = computed(
+	() => candidate_vote.value?.map((c) => Number((c.voteCount * 10000n) / total_vote.value) / 100) ?? [],
+)
 </script>
