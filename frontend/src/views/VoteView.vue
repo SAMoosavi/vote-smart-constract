@@ -1,5 +1,11 @@
 <template>
 	<main class="w-full pt-10 gap-15 flex flex-col items-center">
+		<div>
+			top candidate:
+			<span class="mx-2" v-for="name in winner" :key="name">
+				{{ name }}
+			</span>
+		</div>
 		<div v-if="total_vote > 0">
 			<PieChart class="max-h-96" :labels="chartLabels" :data="chartData" />
 		</div>
@@ -106,14 +112,15 @@ const vote_address = route.params.address as string
 
 const vote_creator_store = useContractStore()
 
-const vote = await VoteService.init(vote_address)
+const vote = ref<VoteService | null>()
 
 const user = ref<User | null>()
 
 onMounted(async () => {
 	await vote_creator_store.init()
+	vote.value = await VoteService.init(vote_address)
 	user.value = useUserStore().user
-	if (user.value) {
+	if (!user.value) {
 		toast.error('You are not logged in')
 	}
 
@@ -132,7 +139,8 @@ onMounted(async () => {
 const candidate_names = ref<string[]>([])
 
 async function loadCandidateNames() {
-	vote.getCandidateNames()
+	vote.value
+		?.getCandidateNames()
 		.then((candidateNames) => (candidate_names.value = candidateNames))
 		.catch(toast.error)
 }
@@ -152,7 +160,8 @@ async function vote_handler(index: number) {
 	const public_address = user.value.public_address
 	const age = user.value.age
 
-	vote.getNonce(public_address)
+	vote.value
+		?.getNonce(public_address)
 		.then((nonce) => {
 			const message = ethers.solidityPackedKeccak256(
 				['address', 'uint256', 'uint64', 'uint256'],
@@ -161,7 +170,8 @@ async function vote_handler(index: number) {
 			signer
 				.signMessage(ethers.getBytes(message))
 				.then((signature) => {
-					vote.vote(index, age, nonce, signature)
+					vote.value
+						?.vote(index, age, nonce, signature)
 						.then(() => {
 							toast.success('Vote successfully submitted')
 							get_candidates_vote().catch(toast.error)
@@ -175,7 +185,8 @@ async function vote_handler(index: number) {
 }
 
 function start_vote() {
-	vote.startVoting()
+	vote.value
+		?.startVoting()
 		.then(() => toast.success('Votereum started'))
 		.catch(toast.error)
 		.finally(voting_started)
@@ -184,19 +195,21 @@ function start_vote() {
 const votingStarted = ref<boolean>(false)
 
 async function voting_started() {
-	vote.votingStarted().then((r) => (votingStarted.value = r))
+	vote.value?.votingStarted().then((r) => (votingStarted.value = r))
 }
 
 const votingEnded = ref<boolean>(false)
 
 async function voting_ended() {
-	vote.votingEnded()
+	vote.value
+		?.votingEnded()
 		.then((r) => (votingEnded.value = r))
 		.finally(get_candidates_vote)
 }
 
 function end_vote() {
-	vote.endVoting()
+	vote.value
+		?.endVoting()
 		.then(() => toast.success('Votereum ended'))
 		.catch(toast.error)
 		.finally(voting_ended)
@@ -208,13 +221,13 @@ async function has_voted() {
 	if (!user.value) return
 
 	const public_address = user.value.public_address
-	vote.hasVoted(public_address).then((r) => (hasVoted.value = r))
+	vote.value?.hasVoted(public_address).then((r) => (hasVoted.value = r))
 }
 
 const candidate_vote = ref<Vote.CandidateStructOutput[]>()
 
 async function get_candidates_vote() {
-	vote.getCandidates().then((candidates) => (candidate_vote.value = candidates))
+	vote.value?.getCandidates().then((candidates) => (candidate_vote.value = candidates))
 }
 
 const total_vote = computed<bigint>(
@@ -232,19 +245,33 @@ const chartData = computed(() => {
 const min_age = ref<bigint>(0n)
 
 async function getMinAge() {
-	vote.getMinAge().then((r) => (min_age.value = r))
+	vote.value?.getMinAge().then((r) => (min_age.value = r))
 }
 
 const max_age = ref<bigint>(0n)
 
 async function getMaxAge() {
-	vote.getMaxAge().then((r) => (max_age.value = r))
+	vote.value?.getMaxAge().then((r) => (max_age.value = r))
 }
 
 const is_eligible = ref(false)
 
 async function isEligible() {
 	if (!user.value) return
-	vote.isEligible(BigInt(user.value.age)).then((r) => (is_eligible.value = r))
+	vote.value?.isEligible(BigInt(user.value.age)).then((r) => (is_eligible.value = r))
 }
+
+const winner = computed(() => {
+	let name: string[] = []
+	let max = 0n
+	if (candidate_vote.value)
+		for (const candidate of candidate_vote.value) {
+			if (candidate.voteCount > max) {
+				name = [candidate.name]
+				max = candidate.voteCount
+			} else if (candidate.voteCount == max) name.push(candidate.name)
+		}
+
+	return name
+})
 </script>
