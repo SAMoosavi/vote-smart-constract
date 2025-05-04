@@ -49,7 +49,7 @@
 
 <script setup lang="ts">
 import { reactive, ref } from 'vue'
-import { createConnection, DEFLATE_PRIVATE_KEY } from '@/functions/Connector.ts'
+import { createConnection } from '@/functions/Connector.ts'
 import { register } from '@/functions/api-handler.ts'
 import { toast } from 'vue3-toastify'
 import { useUserStore } from '@/stores/user.ts'
@@ -77,10 +77,10 @@ async function createAccount() {
 
 	creating.value = true
 	try {
-		const { wallet } = createConnection({ privateKey: DEFLATE_PRIVATE_KEY })
+		const { signer } = await createConnection()
 
-		const public_address = wallet.address
-		const digital_signature = await wallet.signMessage(public_address)
+		const public_address = signer.address
+		const digital_signature = await signer.signMessage(public_address)
 
 		const user = { name: form.name, age: form.age, public_address, digital_signature, id_code: form.id_code }
 		register(user)

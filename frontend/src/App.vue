@@ -26,11 +26,8 @@
 						<li>
 							<RouterLink to="/">Home</RouterLink>
 						</li>
-						<li>
+						<li v-if="user.isLoggedIn">
 							<RouterLink to="/dashboard">dashboard</RouterLink>
-						</li>
-						<li>
-							<RouterLink to="/about">About</RouterLink>
 						</li>
 					</ul>
 				</div>
@@ -48,9 +45,6 @@
 					</li>
 					<li v-if="user.isLoggedIn">
 						<RouterLink to="/dashboard">dashboard</RouterLink>
-					</li>
-					<li>
-						<RouterLink to="/about">About</RouterLink>
 					</li>
 				</ul>
 			</div>
@@ -75,7 +69,7 @@
 import { onMounted } from 'vue'
 import { RouterLink, RouterView } from 'vue-router'
 import { useUserStore } from '@/stores/user.ts'
-import { createConnection, DEFLATE_PRIVATE_KEY } from '@/functions/Connector.ts'
+import { createConnection } from '@/functions/Connector.ts'
 import { getUser } from '@/functions/api-handler.ts'
 import { toast } from 'vue3-toastify'
 
@@ -92,10 +86,10 @@ onMounted(async () => {
 
 	if (!user.isLoggedIn) {
 		try {
-			const { wallet } = createConnection({ privateKey: DEFLATE_PRIVATE_KEY })
+			const { signer } = await createConnection()
 
-			const public_address = wallet.address
-			const digital_signature = await wallet.signMessage(public_address)
+			const public_address = signer.address
+			const digital_signature = await signer.signMessage(public_address)
 
 			getUser(public_address)
 				.then((res) => {

@@ -91,7 +91,7 @@
 <script setup lang="ts">
 import { useRoute } from 'vue-router'
 import { VoteService } from '@/functions/Vote.ts'
-import { createConnection, DEFLATE_PRIVATE_KEY } from '@/functions/Connector.ts'
+import { createConnection } from '@/functions/Connector.ts'
 import { computed, onMounted, ref } from 'vue'
 import { toast } from 'vue3-toastify'
 import { useContractStore } from '@/stores/contract.ts'
@@ -106,14 +106,12 @@ const vote_address = route.params.address as string
 
 const vote_creator_store = useContractStore()
 
-const vote = new VoteService({
-	privateKey: DEFLATE_PRIVATE_KEY,
-	contractAddress: vote_address,
-})
+const vote = await VoteService.init(vote_address)
 
 const user = ref<User | null>()
 
 onMounted(async () => {
+	await vote_creator_store.init()
 	user.value = useUserStore().user
 	if (user.value) {
 		toast.error('You are not logged in')
@@ -142,7 +140,7 @@ async function loadCandidateNames() {
 const access = ref<boolean>(false)
 
 async function checkAccessToVote() {
-	vote_creator_store.vote_creator.hasAccessToVote(vote_address).then((r) => (access.value = r))
+	vote_creator_store.vote_creator?.hasAccessToVote(vote_address).then((r) => (access.value = r))
 }
 
 async function vote_handler(index: number) {
@@ -150,7 +148,7 @@ async function vote_handler(index: number) {
 		toast.error('User data is missing')
 		return
 	}
-	const { wallet } = createConnection({ privateKey: DEFLATE_PRIVATE_KEY })
+	const { signer } = await createConnection()
 	const public_address = user.value.public_address
 	const age = user.value.age
 
@@ -160,7 +158,7 @@ async function vote_handler(index: number) {
 				['address', 'uint256', 'uint64', 'uint256'],
 				[public_address, index, age, nonce],
 			)
-			wallet
+			signer
 				.signMessage(ethers.getBytes(message))
 				.then((signature) => {
 					vote.vote(index, age, nonce, signature)
@@ -178,7 +176,7 @@ async function vote_handler(index: number) {
 
 function start_vote() {
 	vote.startVoting()
-		.then(() => toast.success('voterume started'))
+		.then(() => toast.success('Votereum started'))
 		.catch(toast.error)
 		.finally(voting_started)
 }
@@ -199,7 +197,7 @@ async function voting_ended() {
 
 function end_vote() {
 	vote.endVoting()
-		.then(() => toast.success('voterume ended'))
+		.then(() => toast.success('Votereum ended'))
 		.catch(toast.error)
 		.finally(voting_ended)
 }

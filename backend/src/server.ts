@@ -1,11 +1,11 @@
 import express from 'express'
 import { createUser, getUser } from './db'
-import cors from 'cors';
+import cors from 'cors'
 
 const app = express()
 const PORT = 3000
 
-app.use(cors());
+app.use(cors())
 app.use(express.json())
 
 // @ts-ignore

@@ -1,25 +1,25 @@
 {
-  "name": "backend",
-  "version": "1.0.0",
-  "description": "",
-  "main": "index.js",
-  "scripts": {
-    "run:server": "npx ts-node src/server.ts"
-  },
-  "keywords": [],
-  "author": "",
-  "license": "ISC",
-  "dependencies": {
-    "cors": "^2.8.5",
-    "express": "^5.1.0",
-    "sqlite": "^5.1.1",
-    "sqlite3": "^5.1.7"
-  },
-  "devDependencies": {
-    "@types/cors": "^2.8.17",
-    "@types/express": "^5.0.1",
-    "@types/sqlite3": "^5.1.0",
-    "ts-node": "^10.9.2",
-    "typescript": "^5.8.3"
-  }
+	"name": "backend",
+	"version": "1.0.0",
+	"description": "",
+	"main": "index.js",
+	"scripts": {
+		"run:server": "npx ts-node src/server.ts"
+	},
+	"keywords": [],
+	"author": "",
+	"license": "ISC",
+	"dependencies": {
+		"cors": "^2.8.5",
+		"express": "^5.1.0",
+		"sqlite": "^5.1.1",
+		"sqlite3": "^5.1.7"
+	},
+	"devDependencies": {
+		"@types/cors": "^2.8.17",
+		"@types/express": "^5.0.1",
+		"@types/sqlite3": "^5.1.0",
+		"ts-node": "^10.9.2",
+		"typescript": "^5.8.3"
+	}
 }

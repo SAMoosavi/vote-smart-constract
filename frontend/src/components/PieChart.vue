@@ -60,7 +60,6 @@ let currentPrimaryColor = resolveTailwindStyle('bg-primary', 'backgroundColor')
 
 onDaisyUIThemeChange(() => {
 	currentPrimaryColor = resolveTailwindStyle('bg-primary', 'backgroundColor')
-	console.log('Theme changed! New primary color:', currentPrimaryColor)
 })
 
 const textColor = ref<string>('')

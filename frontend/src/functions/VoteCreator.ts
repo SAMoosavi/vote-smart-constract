@@ -12,17 +12,15 @@ export interface VoteCreatorConfig {
 }
 
 export class VoteCreatorService {
-	private readonly contract: VoteCreator
+	private contract!: VoteCreator
 
-	constructor(private readonly config: { rpcUrl: string; privateKey: string; contractAddress: string }) {
-		// wire up signer
-		const { wallet } = createConnection({
-			rpcUrl: config.rpcUrl,
-			privateKey: config.privateKey,
-		})
+	private constructor() {}
 
-		// connect typed contract factory
-		this.contract = VoteCreator__factory.connect(config.contractAddress, wallet)
+	static async init(contractAddress: string): Promise<VoteCreatorService> {
+		const instance = new VoteCreatorService()
+		const { signer } = await createConnection()
+		instance.contract = VoteCreator__factory.connect(contractAddress, signer)
+		return instance
 	}
 
 	/** internal helper for consistent try/catch */

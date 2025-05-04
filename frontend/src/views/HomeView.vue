@@ -70,18 +70,22 @@ const user = useUserStore()
 const votes = ref<VoteCreator.VoteDataStructOutput[]>()
 
 onMounted(async () => {
-	contract.vote_creator.getTotalVotes().then((response) => {
-		const number_of_voterum = Number(response)
-		animate(number_of_vote_ref.value as HTMLElement, {
-			modifier: utils.round(0),
-			innerHTML: [0, number_of_voterum],
-			easing: 'inBack',
-			duration: 2000,
-		})
-	})
+	contract.init().then(() => {
+		if (contract.vote_creator == undefined) return
 
-	contract.vote_creator.getAllVotes().then((res) => {
-		votes.value = res
+		contract.vote_creator.getTotalVotes().then((response) => {
+			const number_of_vote = Number(response)
+			animate(number_of_vote_ref.value as HTMLElement, {
+				modifier: utils.round(0),
+				innerHTML: [0, number_of_vote],
+				easing: 'inBack',
+				duration: 2000,
+			})
+		})
+
+		contract.vote_creator.getAllVotes().then((res) => {
+			votes.value = res
+		})
 	})
 })
 </script>

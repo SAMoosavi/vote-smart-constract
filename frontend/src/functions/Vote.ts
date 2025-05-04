@@ -2,27 +2,16 @@ import { type Vote, Vote__factory } from '@/build'
 import { createConnection } from '@/functions/Connector.ts'
 import type { ContractTransactionResponse } from 'ethers'
 
-export interface VoteConfig {
-	/** JSON-RPC endpoint (defaults to http://127.0.0.1:8545) */
-	rpcUrl?: string
-	/** 0x-prefixed 64-byte hex private key */
-	privateKey: string
-	/** Deployed Vote address */
-	contractAddress: string
-}
-
 export class VoteService {
-	private readonly contract: Vote
+	private contract!: Vote
 
-	constructor(private readonly config: VoteConfig) {
-		// wire up signer
-		const { wallet } = createConnection({
-			rpcUrl: config.rpcUrl,
-			privateKey: config.privateKey,
-		})
+	constructor() {}
 
-		// connect typed contract factory
-		this.contract = Vote__factory.connect(config.contractAddress, wallet)
+	static async init(contractAddress: string): Promise<VoteService> {
+		const instance = new VoteService()
+		const { signer } = await createConnection()
+		instance.contract = Vote__factory.connect(contractAddress, signer)
+		return instance
 	}
 
 	/** internal helper for consistent try/catch */

@@ -172,6 +172,10 @@ const form = reactive<Form>({
 	number_of_candidate: 2,
 })
 
+onMounted(async () => {
+	await contractStore.init()
+})
+
 watch(
 	() => form.number_of_candidate,
 	(value) => {
@@ -207,7 +211,7 @@ async function create_vote() {
 
 	creating.value = true
 	contractStore.vote_creator
-		.createVote(form.vote_name, form.candidate_names, form.min_age, form.max_age)
+		?.createVote(form.vote_name, form.candidate_names, form.min_age, form.max_age)
 		.then(async () => {
 			toast.success('create votereum successfully.')
 			creating.value = false
@@ -225,7 +229,7 @@ async function create_vote() {
 }
 
 async function get_vote() {
-	contractStore.vote_creator.getMyVotes().then((res) => {
+	contractStore.vote_creator?.getMyVotes().then((res) => {
 		votes.value = res
 	})
 }
