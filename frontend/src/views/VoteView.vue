@@ -1,12 +1,13 @@
 <template>
 	<main class="w-full pt-10 gap-15 flex flex-col items-center">
-		<div>
-			top candidate:
-			<span class="mx-2" v-for="name in winner" :key="name">
-				{{ name }}
-			</span>
-		</div>
-		<div v-if="total_vote > 0">
+		<div v-if="total_vote > 0" class="flex flex-col gap-10">
+			<div class="mx-auto text-center">
+				<span class="font-semibold">Top Candidate<span v-if="winner.length > 1">s</span>:</span>
+				<ul class="list-disc list-inside ml-4">
+					<li v-for="name in winner" :key="name">{{ name }}</li>
+				</ul>
+			</div>
+
 			<PieChart class="max-h-96" :labels="chartLabels" :data="chartData" />
 		</div>
 		<p v-else class="text-center text-primary mt-4">No votes yet</p>
